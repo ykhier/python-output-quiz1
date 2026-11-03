@@ -1,0 +1,347 @@
+<title>מה הפלט? פייתון</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Secular+One&family=Assistant:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one study column — header with score, topic chips, question card (code → 4 options → explanation), question map */
+:root{
+  --bg:#eaeff4; --surface:#ffffff; --surface2:#f4f7fa; --ink:#132033; --muted:#5b6879; --line:#d5dde6;
+  --accent:#2c64a8; --accent-ink:#ffffff; --sun:#e0ad2e;
+  --good:#23845a; --good-bg:#e3f4ec; --bad:#c2412f; --bad-bg:#fbe9e6;
+  --code-bg:#15202f; --code-ink:#dde6f0; --code-dim:#5f7088;
+  --tk-kw:#ff9e64; --tk-str:#9ece6a; --tk-num:#e0af68; --tk-fn:#7dcfff; --tk-bi:#bb9af7; --tk-cm:#6b7a90;
+  --f-display:"Secular One","Assistant",system-ui,sans-serif;
+  --f-body:"Assistant",system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
+  --f-code:"JetBrains Mono",ui-monospace,"SFMono-Regular",Consolas,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e141d; --surface:#161f2c; --surface2:#1b2635; --ink:#e4eaf2; --muted:#94a2b4; --line:#2a3646;
+  --accent:#5b9be0; --accent-ink:#0e141d; --sun:#e8bb4a;
+  --good:#4cc08a; --good-bg:#15302a; --bad:#ec7564; --bad-bg:#3a1f1d;
+  --code-bg:#0b1119; --code-ink:#dde6f0; --code-dim:#4f5f76; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e141d; --surface:#161f2c; --surface2:#1b2635; --ink:#e4eaf2; --muted:#94a2b4; --line:#2a3646;
+  --accent:#5b9be0; --accent-ink:#0e141d; --sun:#e8bb4a;
+  --good:#4cc08a; --good-bg:#15302a; --bad:#ec7564; --bad-bg:#3a1f1d;
+  --code-bg:#0b1119; --code-ink:#dde6f0; --code-dim:#4f5f76; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:17px;line-height:1.6;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 48px}
+.wrap{max-width:880px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+code,.mono{font-family:var(--f-code)}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px}
+.brand h1{font-family:var(--f-display);font-weight:400;font-size:clamp(2rem,6vw,2.9rem);line-height:1;margin:0;letter-spacing:.01em}
+.brand h1 .py{font-family:var(--f-code);font-size:.5em;font-weight:600;color:var(--accent);vertical-align:middle;margin-inline-start:.4em;
+  border:2px solid var(--accent);border-radius:6px;padding:.1em .4em}
+.brand p{margin:.4em 0 0;color:var(--muted);max-width:52ch}
+.stats{display:flex;gap:8px;flex-wrap:wrap}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:6px 14px;min-width:84px;text-align:center}
+.stat b{display:block;font-family:var(--f-code);font-size:1.25rem;font-variant-numeric:tabular-nums;line-height:1.3}
+.stat span{font-size:.78rem;color:var(--muted);letter-spacing:.03em}
+
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 14px;font-size:.92rem;font-weight:600;display:inline-flex;gap:6px;align-items:center}
+.chip small{font-family:var(--f-code);font-size:.75rem;color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chip[aria-pressed="true"] small{color:inherit;opacity:.7}
+.bar .spacer{flex:1}
+.ghost{background:none;border:none;color:var(--muted);font-size:.9rem;text-decoration:underline;text-underline-offset:3px;padding:4px}
+
+.progress{height:6px;background:var(--line);border-radius:3px;overflow:hidden;display:flex}
+.progress i{display:block;height:100%}
+.progress .g{background:var(--good)} .progress .b{background:var(--bad)}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:18px}
+.qhead{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.qnum{font-family:var(--f-display);font-size:1.5rem;line-height:1}
+.qnum small{font-family:var(--f-body);font-size:.9rem;color:var(--muted)}
+.tags{display:flex;gap:6px;flex-wrap:wrap}
+.tag{font-size:.78rem;font-weight:700;letter-spacing:.04em;padding:2px 10px;border-radius:5px;background:var(--surface2);color:var(--muted);border:1px solid var(--line)}
+.tag.hot{background:transparent;color:var(--sun);border-color:var(--sun)}
+.prompt{font-size:1.15rem;font-weight:700;margin:0}
+
+.code{direction:ltr;text-align:left;background:var(--code-bg);color:var(--code-ink);border-radius:var(--r);overflow-x:auto;font-family:var(--f-code);font-size:.92rem;line-height:1.65;padding:14px 0}
+.code table{border-collapse:collapse}
+.code td{padding:0 16px 0 0;white-space:pre;vertical-align:top}
+.code td.ln{color:var(--code-dim);text-align:right;padding:0 14px 0 16px;user-select:none;font-variant-numeric:tabular-nums}
+.tk-kw{color:var(--tk-kw)} .tk-str{color:var(--tk-str)} .tk-num{color:var(--tk-num)} .tk-fn{color:var(--tk-fn)} .tk-bi{color:var(--tk-bi)} .tk-cm{color:var(--tk-cm);font-style:italic} .tk-dec{color:var(--tk-fn)}
+
+.opts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media (max-width:620px){.opts{grid-template-columns:1fr}}
+.opt{display:flex;gap:12px;align-items:flex-start;text-align:start;background:var(--surface2);border:2px solid var(--line);border-radius:var(--r);padding:12px 14px;min-width:0;transition:border-color .15s,background .15s}
+.opt:hover:not(:disabled){border-color:var(--accent)}
+.opt:disabled{cursor:default}
+.opt .ltr{font-family:var(--f-display);font-size:1.1rem;width:30px;height:30px;flex:none;display:grid;place-items:center;border-radius:7px;background:var(--surface);border:1px solid var(--line)}
+.out{direction:ltr;text-align:left;font-family:var(--f-code);font-size:.9rem;white-space:pre;overflow-x:auto;min-width:0;flex:1;padding-top:3px}
+.err{display:inline-block;font-family:var(--f-body);font-weight:700;font-size:.78rem;background:var(--bad-bg);color:var(--bad);border-radius:4px;padding:0 6px;margin-right:6px;direction:rtl}
+.opt.right{border-color:var(--good);background:var(--good-bg)}
+.opt.right .ltr{background:var(--good);color:var(--surface);border-color:var(--good)}
+.opt.wrong{border-color:var(--bad);background:var(--bad-bg)}
+.opt.wrong .ltr{background:var(--bad);color:var(--surface);border-color:var(--bad)}
+.opt.dim{opacity:.55}
+
+.verdict{display:flex;gap:12px;align-items:center;padding:12px 16px;border-radius:var(--r);font-weight:700;font-size:1.1rem}
+.verdict.ok{background:var(--good-bg);color:var(--good)} .verdict.no{background:var(--bad-bg);color:var(--bad)}
+.verdict .mark{font-family:var(--f-display);font-size:1.6rem;line-height:1}
+.explain h3{font-family:var(--f-display);font-weight:400;font-size:1.15rem;margin:0 0 6px}
+.explain p{margin:0;max-width:70ch}
+.explain code,.why code{direction:ltr;unicode-bidi:isolate;background:var(--surface2);border:1px solid var(--line);border-radius:4px;padding:0 5px;font-size:.86em}
+.actual{display:flex;flex-direction:column;gap:6px}
+.actual .code{padding:10px 16px;white-space:pre}
+.why{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.why li{display:grid;grid-template-columns:30px minmax(0,1fr);gap:12px;padding:10px 12px;border-radius:8px;border:1px solid var(--line)}
+.why li.right{border-color:var(--good)}
+.why li .ltr{font-family:var(--f-display);width:30px;height:30px;display:grid;place-items:center;border-radius:7px;background:var(--surface2)}
+.why li.right .ltr{background:var(--good);color:var(--surface)}
+.why li.mine:not(.right) .ltr{background:var(--bad);color:var(--surface)}
+.why .who{font-size:.78rem;font-weight:700;letter-spacing:.03em;color:var(--muted)}
+.why .who.g{color:var(--good)} .why .who.b{color:var(--bad)}
+.why p{margin:2px 0 0}
+
+.nav{display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap}
+.btn{border:2px solid var(--line);background:var(--surface);border-radius:var(--r);padding:9px 20px;font-weight:700}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.4;cursor:default}
+.hint{font-size:.82rem;color:var(--muted);text-align:center}
+.hint kbd{font-family:var(--f-code);font-size:.78rem;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;background:var(--surface)}
+
+.map h2{font-family:var(--f-display);font-weight:400;font-size:1.1rem;margin:0 0 10px}
+.dots{display:flex;flex-wrap:wrap;gap:6px}
+.dot{width:34px;height:34px;border-radius:7px;border:1px solid var(--line);background:var(--surface);font-family:var(--f-code);font-size:.8rem;font-variant-numeric:tabular-nums}
+.dot.g{background:var(--good);border-color:var(--good);color:var(--surface)}
+.dot.b{background:var(--bad);border-color:var(--bad);color:var(--surface)}
+.dot.cur{outline:3px solid var(--sun);outline-offset:1px}
+
+.confirm{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--bad-bg);color:var(--bad);border-radius:var(--r);padding:10px 14px;font-weight:600}
+.done{background:var(--surface);border:2px dashed var(--accent);border-radius:14px;padding:18px;text-align:center}
+.done b{font-family:var(--f-display);font-size:1.6rem;font-weight:400;display:block}
+.welcome{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--surface);border:1px solid var(--accent);border-radius:var(--r);padding:10px 14px}
+.welcome b{color:var(--accent)} .welcome .ghost{margin-inline-start:auto}
+.backup{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:18px}
+.backup h2{font-family:var(--f-display);font-weight:400;font-size:1.1rem;margin:0}
+.saved{margin:0;font-weight:600;color:var(--good);display:flex;gap:8px;align-items:center}
+.saved::before{content:"";width:9px;height:9px;border-radius:50%;background:currentColor}
+.saved.off{color:var(--bad)}
+.note{margin:0;color:var(--muted);font-size:.92rem;max-width:70ch}
+.bk{width:100%;font-family:var(--f-code);font-size:.8rem;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px;resize:vertical}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap" dir="rtl" lang="he">
+  <header>
+    <div class="brand">
+      <h1>מה הפלט?<span class="py">.py</span></h1>
+      <p>קרא את הקוד, נחש מה יודפס, וקבל הסבר מלא על כל אחת מארבע האפשרויות. כל התשובות נבדקו בהרצה אמיתית של Python 3. ההתקדמות נשמרת, ומחר ממשיכים מאותה שאלה.</p>
+    </div>
+    <div class="stats" aria-live="polite">
+      <div class="stat"><b id="sScore">0</b><span>נכונות</span></div>
+      <div class="stat"><b id="sDone">0/0</b><span>נענו</span></div>
+      <div class="stat"><b id="sPct">–</b><span>דיוק</span></div>
+    </div>
+  </header>
+
+  <div class="bar" id="cats" role="toolbar" aria-label="סינון לפי נושא"></div>
+  <div class="progress" aria-hidden="true"><i class="g" id="pG"></i><i class="b" id="pB"></i></div>
+
+  <div id="welcome" hidden></div>
+  <div id="confirmBox" hidden></div>
+  <div id="doneBox" hidden></div>
+
+  <article class="card" id="card"></article>
+
+  <div class="nav">
+    <button class="btn" id="prev">→ הקודמת</button>
+    <button class="btn" id="nextUn">לשאלה הבאה שלא נענתה</button>
+    <button class="btn primary" id="next">הבאה ←</button>
+  </div>
+  <div class="hint">מקלדת: <kbd>1</kbd>–<kbd>4</kbd> לבחירה, <kbd>←</kbd> <kbd>→</kbd> למעבר בין שאלות</div>
+
+  <section class="map">
+    <h2>מפת שאלות</h2>
+    <div class="dots" id="dots"></div>
+  </section>
+
+  <div class="bar"><span class="spacer"></span>
+    <button class="ghost" id="shuffleBtn">ערבוב סדר השאלות</button>
+    <button class="ghost" id="resetBtn">איפוס התקדמות</button>
+  </div>
+</div>
+
+<script type="application/json" id="data">__DATA__</script>
+<script>
+(function(){
+const Q = JSON.parse(document.getElementById('data').textContent);
+Q.forEach((q,i)=>q.id=i);
+const CATS = [
+  ['all','הכול'],['lists','רשימות'],['dicts','מילונים'],['strings','מחרוזות'],
+  ['functions','פונקציות'],['classes','מחלקות'],['poly','פולימורפיזם'],['iter','גנרטורים'],['exceptions','חריגות'],['tricks','טריקים'],['bugs','באגים ושגיאות'],['mine','מהקוד שלך']
+];
+const CATNAME = Object.fromEntries(CATS);
+const LETTERS = ['א','ב','ג','ד'];
+const isBug = q => q.out.includes('ERR:') || /באג/.test(q.title);
+const inCat = (q,c) => c==='all' || q.cat===c || (c==='bugs' && isBug(q)) || (c==='mine' && q.title==='מהקוד שלך');
+
+const KEY='mah-hapelet-v1';
+let st = {answers:{}, perm:{}, order:null, cat:'all', pos:0, curId:null, savedAt:null};
+let restored=false;
+let storageOk=true;
+try{ const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s&&s.answers){ st=Object.assign(st,s); restored=Object.keys(s.answers).length>0; } }catch(e){storageOk=false}
+const save=()=>{
+  const q=visible()[st.pos]; if(q) st.curId=q.id;
+  try{ st.savedAt=Date.now(); localStorage.setItem(KEY,JSON.stringify(st)); storageOk=true; }catch(e){ storageOk=false; }
+  renderSaved();
+};
+
+function shuffled(n){const a=[...Array(n).keys()];for(let i=n-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+Q.forEach(q=>{ if(!st.perm[q.id]) st.perm[q.id]=shuffled(4); });
+if(!st.order) st.order=Q.map(q=>q.id);
+st.order=st.order.filter(i=>i<Q.length);
+Q.forEach(q=>{ if(!st.order.includes(q.id)) st.order.push(q.id); });
+
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const md=s=>esc(s).replace(/`([^`]+)`/g,'<code>$1</code>');
+
+// ---------- syntax highlighting ----------
+const KW=new Set('def class return if elif else for while in not and or is None True False try except finally with as import from lambda pass break continue global nonlocal yield raise del assert'.split(' '));
+const BI=new Set('print len range list dict set tuple str int float bool sorted zip enumerate repr round min max sum super isinstance type open input abs map filter'.split(' '));
+const TOK=/(#.*$)|((?:f|r|b)?(?:"""[\s\S]*?"""|'''[\s\S]*?'''|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'))|(@\w+)|(\b\d+(?:\.\d+)?\b)|(\b[A-Za-z_]\w*\b)/gm;
+function hl(line){
+  let out='',last=0,m,prevKw=''; TOK.lastIndex=0;
+  while((m=TOK.exec(line))){
+    out+=esc(line.slice(last,m.index)); last=TOK.lastIndex;
+    const t=m[0];
+    if(m[1]) out+=`<span class="tk-cm">${esc(t)}</span>`;
+    else if(m[2]) out+=`<span class="tk-str">${esc(t)}</span>`;
+    else if(m[3]) out+=`<span class="tk-dec">${esc(t)}</span>`;
+    else if(m[4]) out+=`<span class="tk-num">${t}</span>`;
+    else if(KW.has(t)){ out+=`<span class="tk-kw">${t}</span>`; prevKw=t; continue; }
+    else if(prevKw==='def'||prevKw==='class') out+=`<span class="tk-fn">${t}</span>`;
+    else if(BI.has(t)||t==='self') out+=`<span class="tk-bi">${t}</span>`;
+    else out+=esc(t);
+    prevKw='';
+  }
+  return out+esc(line.slice(last));
+}
+function codeBlock(src){
+  const rows=src.split('\n').map((l,i)=>`<tr><td class="ln">${i+1}</td><td>${hl(l)||' '}</td></tr>`).join('');
+  return `<div class="code" dir="ltr"><table>${rows}</table></div>`;
+}
+function outHtml(s){
+  return s.split('\n').map(l=> l.startsWith('ERR:') ? `<span class="err">שגיאה</span>${esc(l.slice(4))}` : esc(l)).join('\n');
+}
+
+// ---------- rendering ----------
+const $=id=>document.getElementById(id);
+const visible=()=>st.order.map(i=>Q[i]).filter(q=>inCat(q,st.cat));
+
+function renderCats(){
+  $('cats').innerHTML=CATS.map(([k,n])=>{
+    const c=Q.filter(q=>inCat(q,k)).length;
+    return `<button class="chip" data-cat="${k}" aria-pressed="${st.cat===k}">${n}<small>${c}</small></button>`;
+  }).join('');
+}
+function renderStats(){
+  const list=visible();
+  const ans=list.filter(q=>st.answers[q.id]!==undefined);
+  const ok=ans.filter(q=>st.answers[q.id]===q.ans).length;
+  $('sScore').textContent=ok;
+  $('sDone').textContent=`${ans.length}/${list.length}`;
+  $('sPct').textContent=ans.length?Math.round(ok/ans.length*100)+'%':'–';
+  $('pG').style.width=(list.length?ok/list.length*100:0)+'%';
+  $('pB').style.width=(list.length?(ans.length-ok)/list.length*100:0)+'%';
+  const done=$('doneBox');
+  if(list.length && ans.length===list.length){
+    done.hidden=false;
+    done.innerHTML=`<div class="done"><b>סיימת את כל ${list.length} השאלות בנושא "${CATNAME[st.cat]}"</b>ענית נכון על ${ok} מתוך ${list.length}. אפשר לעבור לנושא אחר, או לאפס ולנסות שוב.</div>`;
+  } else done.hidden=true;
+}
+function renderDots(){
+  const list=visible();
+  $('dots').innerHTML=list.map((q,i)=>{
+    const a=st.answers[q.id]; const cls=a===undefined?'':(a===q.ans?'g':'b');
+    return `<button class="dot ${cls} ${i===st.pos?'cur':''}" data-pos="${i}" aria-label="שאלה ${i+1}">${i+1}</button>`;
+  }).join('');
+}
+function renderCard(){
+  const list=visible();
+  if(!list.length){$('card').innerHTML='<p>אין שאלות בנושא הזה.</p>';return}
+  st.pos=Math.max(0,Math.min(st.pos,list.length-1));
+  const q=list[st.pos], perm=st.perm[q.id], chosen=st.answers[q.id], answered=chosen!==undefined;
+  const tags=[`<span class="tag">${CATNAME[q.cat]}</span>`];
+  if(q.title) tags.push(`<span class="tag hot">${q.title}</span>`);
+  let h=`<div class="qhead"><div class="qnum">${st.pos+1} <small>מתוך ${list.length}</small></div><div class="tags">${tags.join('')}</div></div>
+    <p class="prompt">מה ידפיס הקוד הבא?</p>${codeBlock(q.code)}
+    <div class="opts" role="group" aria-label="אפשרויות">`;
+  perm.forEach((oi,pi)=>{
+    let cls='';
+    if(answered){ if(oi===q.ans) cls='right'; else if(oi===chosen) cls='wrong'; else cls='dim'; }
+    h+=`<button class="opt ${cls}" data-oi="${oi}" ${answered?'disabled':''}><span class="ltr">${LETTERS[pi]}</span><span class="out">${outHtml(q.opts[oi])}</span></button>`;
+  });
+  h+='</div>';
+  if(answered){
+    const ok=chosen===q.ans; const rl=LETTERS[perm.indexOf(q.ans)];
+    h+=`<div class="verdict ${ok?'ok':'no'}" role="status"><span class="mark">${ok?'✓':'✗'}</span>${ok?'נכון! בחרת בתשובה הנכונה.':`לא נכון. התשובה הנכונה היא ${rl}.`}</div>
+    <div class="explain"><h3>איך מגיעים לתשובה</h3><p>${md(q.explain)}</p></div>
+    <div class="actual explain"><h3>הפלט בפועל</h3><div class="code mono" dir="ltr">${outHtml(q.out)}</div></div>
+    <div class="explain"><h3>למה כל אפשרות נכונה או לא</h3></div><ul class="why">`;
+    perm.forEach((oi,pi)=>{
+      const right=oi===q.ans, mine=oi===chosen;
+      const who=right?`<span class="who g">התשובה הנכונה${mine?' · בחרת בה':''}</span>`:`<span class="who ${mine?'b':''}">${mine?'הבחירה שלך · לא נכונה':'לא נכונה'}</span>`;
+      h+=`<li class="${right?'right':''} ${mine?'mine':''}"><span class="ltr">${LETTERS[pi]}</span><div>${who}<p>${md(q.why[oi])}</p></div></li>`;
+    });
+    h+='</ul>';
+  }
+  $('card').innerHTML=h;
+  $('prev').disabled=st.pos===0;
+  $('next').disabled=st.pos===list.length-1;
+}
+function render(){renderCats();renderStats();renderCard();renderDots();save()}
+
+function renderSaved(){
+  const el=$('savedLine'); if(!el) return;
+  const n=Object.keys(st.answers).length;
+  if(!storageOk){ el.className='saved off'; el.textContent='הדפדפן חוסם שמירה מקומית כרגע. השתמש בקוד הגיבוי כדי לשמור את ההתקדמות.'; return; }
+  const t=st.savedAt?new Date(st.savedAt).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'}):'';
+  el.className='saved'; el.textContent=`נשמר במחשב הזה${t?' בשעה '+t:''} · ${n} תשובות`;
+}
+// ---------- events ----------
+document.addEventListener('click',e=>{
+  const c=e.target.closest('.chip'); if(c){st.cat=c.dataset.cat;st.pos=0;render();return}
+  const o=e.target.closest('.opt'); if(o&&!o.disabled){choose(+o.dataset.oi);return}
+  const d=e.target.closest('.dot'); if(d){st.pos=+d.dataset.pos;render();$('card').scrollIntoView({behavior:'smooth',block:'start'});return}
+});
+function choose(oi){const q=visible()[st.pos]; if(st.answers[q.id]!==undefined) return; st.answers[q.id]=oi; render();}
+function go(d){const n=visible().length; st.pos=Math.max(0,Math.min(n-1,st.pos+d)); render(); window.scrollTo({top:$('card').offsetTop-12,behavior:'smooth'})}
+$('prev').onclick=()=>go(-1);
+$('next').onclick=()=>go(1);
+$('nextUn').onclick=()=>{
+  const list=visible(); for(let k=1;k<=list.length;k++){const i=(st.pos+k)%list.length; if(st.answers[list[i].id]===undefined){st.pos=i;render();return}}
+};
+$('shuffleBtn').onclick=()=>{st.order=shuffled(Q.length);st.pos=0;render()};
+$('resetBtn').onclick=()=>{
+  const b=$('confirmBox'); b.hidden=false;
+  b.innerHTML='<div class="confirm">למחוק את כל התשובות ולהתחיל מחדש? <button class="btn" id="cYes">כן, לאפס</button><button class="btn" id="cNo">ביטול</button></div>';
+  $('cYes').onclick=()=>{st.answers={};st.pos=0;Q.forEach(q=>st.perm[q.id]=shuffled(4));b.hidden=true;render()};
+  $('cNo').onclick=()=>{b.hidden=true};
+};
+document.addEventListener('keydown',e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.key>='1'&&e.key<='4'){const q=visible()[st.pos]; if(q) choose(st.perm[q.id][+e.key-1]);}
+  else if(e.key==='ArrowLeft') go(1);
+  else if(e.key==='ArrowRight') go(-1);
+});
+if(st.curId!=null){ const i=visible().findIndex(q=>q.id===st.curId); if(i>=0) st.pos=i; }
+if(restored){
+  const n=Object.keys(st.answers).filter(k=>+k<Q.length).length;
+  const w=$('welcome'); w.hidden=false;
+  w.innerHTML=`<div class="welcome"><b>ברוך שובך!</b> ענית כבר על ${n} מתוך ${Q.length} שאלות. ממשיכים בדיוק מהשאלה שבה עצרת.<button class="ghost" id="wClose">סגירה</button></div>`;
+  $('wClose').onclick=()=>{w.hidden=true};
+}
+render();
+})();
+</script>
