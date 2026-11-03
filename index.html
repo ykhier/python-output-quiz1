@@ -137,6 +137,29 @@ header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-be
 .saved.off{color:var(--bad)}
 .note{margin:0;color:var(--muted);font-size:.92rem;max-width:70ch}
 .bk{width:100%;font-family:var(--f-code);font-size:.8rem;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px;resize:vertical}
+.wrap>*,.card>*{min-width:0;max-width:100%}
+.code{max-width:100%}
+@media (hover:none){.hint{display:none}}
+@media (max-width:620px){
+  body{font-size:16px;padding-block:16px 32px}
+  .wrap{gap:14px}
+  .brand p{font-size:.95rem} .brand .long{display:none}
+  .stats{width:100%} .stat{flex:1;min-width:0;padding:6px 8px}
+  #cats{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-block:2px}
+  #cats::-webkit-scrollbar{display:none}
+  .chip{flex:none}
+  .card{padding:14px;gap:14px;border-radius:12px}
+  .code{font-size:.8rem;padding:10px 0}
+  .code td{padding-right:12px} .code td.ln{padding:0 10px 0 12px}
+  .opt{padding:10px 12px;gap:10px}
+  .out{font-size:.85rem}
+  .why li{grid-template-columns:26px minmax(0,1fr);gap:10px;padding:10px}
+  .why li .ltr,.opt .ltr{width:26px;height:26px;font-size:1rem}
+  .nav{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .nav .btn{padding:10px 8px}
+  #nextUn{grid-column:1 / -1;order:3}
+  .dot{width:32px;height:32px}
+}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
@@ -144,7 +167,7 @@ header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-be
   <header>
     <div class="brand">
       <h1>מה הפלט?<span class="py">.py</span></h1>
-      <p>קרא את הקוד, נחש מה יודפס, וקבל הסבר מלא על כל אחת מארבע האפשרויות. כל התשובות נבדקו בהרצה אמיתית של Python 3. ההתקדמות נשמרת, ומחר ממשיכים מאותה שאלה.</p>
+      <p>קרא את הקוד, נחש מה יודפס, וקבל הסבר מלא על כל אחת מארבע האפשרויות.<span class="long"> כל התשובות נבדקו בהרצה אמיתית של Python 3. ההתקדמות נשמרת, ומחר ממשיכים מאותה שאלה.</span></p>
     </div>
     <div class="stats" aria-live="polite">
       <div class="stat"><b id="sScore">0</b><span>נכונות</span></div>
