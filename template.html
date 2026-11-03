@@ -178,8 +178,10 @@ header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-be
 const Q = JSON.parse(document.getElementById('data').textContent);
 Q.forEach((q,i)=>q.id=i);
 const CATS = [
-  ['all','הכול'],['lists','רשימות'],['dicts','מילונים'],['strings','מחרוזות'],
-  ['functions','פונקציות'],['classes','מחלקות'],['poly','פולימורפיזם'],['iter','גנרטורים'],['exceptions','חריגות'],['tricks','טריקים'],['bugs','באגים ושגיאות'],['mine','מהקוד שלך']
+  ['all','הכול'],['vars','משתנים'],['cond','תנאים'],['loops','לולאות'],
+  ['lists','רשימות'],['tuples','tuple ו-set'],['dicts','מילונים'],['strings','מחרוזות'],
+  ['functions','פונקציות'],['exceptions','ניהול שגיאות'],['classes','מחלקות'],['poly','פולימורפיזם'],
+  ['iter','גנרטורים'],['tricks','טריקים'],['bugs','באגים ושגיאות'],['mine','מהקוד שלך']
 ];
 const CATNAME = Object.fromEntries(CATS);
 const LETTERS = ['א','ב','ג','ד'];
