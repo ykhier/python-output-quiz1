@@ -8,9 +8,9 @@ def q(cat, code, opts, ans, explain, why, title="", prompt=""):
         d["prompt"] = prompt
     Q.append(d)
 
-def qe(code, names, ans, explain, why, title=""):
+def qe(code, names, ans, explain, why, title="", cat="raise"):
     """Question whose four options are all exception types."""
-    q("raise", code, [E(n) for n in names], ans, explain, why, title, prompt="איזו חריגה תיזרק?")
+    q(cat, code, [E(n) for n in names], ans, explain, why, title, prompt="איזו חריגה תיזרק?")
 
 E = lambda name: "ERR:" + name
 
@@ -3096,6 +3096,447 @@ print(os.path.exists("temp.txt"))
  "os.remove מחק את הקובץ.",
  "הקובץ נוצר לפני הבדיקה הראשונה.",
  "הקובץ סגור (with הסתיים), אז מותר למחוק אותו."])
+
+# ═════════════ Pandas: CSV, Excel, JSON ═════════════
+q("pandas", r"""
+import pandas as pd
+
+with open("students.csv", "w") as f:
+    f.write("name,age,city\n")
+    f.write("Dana,25,Haifa\n")
+    f.write("Yossi,31,Tel Aviv\n")
+    f.write("Gil,28,Haifa\n")
+
+df = pd.read_csv("students.csv")
+print(df.shape, len(df), df.size)
+""", ["(3, 3) 3 9", "(4, 3) 4 12", "(3, 3) 3 3", "(3, 3) 9 9"], 0,
+"`read_csv` מתייחס לשורה הראשונה ככותרות העמודות, ולכן היא לא נספרת כשורה. `shape` הוא (שורות, עמודות), `len` הוא מספר השורות, ו-`size` הוא מספר התאים: 3 × 3.",
+["נכון.",
+ "שורת הכותרת לא נספרת כשורת נתונים.",
+ "size הוא כל התאים (שורות כפול עמודות), לא מספר השורות.",
+ "len מחזיר את מספר השורות, לא את מספר התאים."], "CSV")
+
+q("pandas", r"""
+import pandas as pd
+
+df = pd.DataFrame({"name": ["Dana", "Gil"], "age": [25, 28]})
+df.to_csv("out.csv")
+
+back = pd.read_csv("out.csv")
+print(back.columns.tolist())
+""", ["['name', 'age']", "['Unnamed: 0', 'name', 'age']", "['index', 'name', 'age']", "['0', 'name', 'age']"], 1,
+"`to_csv` שומר כברירת מחדל גם את האינדקס (0, 1) כעמודה ראשונה בלי כותרת. בקריאה חזרה, pandas קורא לעמודה הזו `Unnamed: 0`. התיקון: `to_csv(\"out.csv\", index=False)`.",
+["זה מה שמתקבל עם `index=False`.",
+ "נכון: מלכודת נפוצה מאוד.",
+ "לעמודה אין כותרת בקובץ, אז pandas ממציא את השם Unnamed: 0.",
+ "השם שנוצר הוא Unnamed: 0, לא 0."], "טריק קלאסי")
+
+q("pandas", r"""
+import pandas as pd
+
+with open("ages.csv", "w") as f:
+    f.write("name,age\nDana,30\nGil,\nNoa,40\n")
+
+df = pd.read_csv("ages.csv")
+print(df["age"].dtype, df["age"].mean(), df["age"].isna().sum())
+""", ["int64 23.333333333333332 0", "float64 35.0 1", "float64 23.333333333333332 1", "int64 35.0 1"], 1,
+"תא ריק ב-CSV הופך ל-NaN. ל-NaN אין ייצוג במספרים שלמים, ולכן כל העמודה הופכת ל-float64. `mean()` מדלג על NaN כברירת מחדל: (30 + 40) / 2 = 35.",
+["העמודה הופכת ל-float בגלל ה-NaN, ו-mean לא סופר אותו כ-0.",
+ "נכון.",
+ "mean מתעלם מ-NaN ולא מחשב אותו כ-0.",
+ "int64 לא יכול להחזיק NaN."], "CSV")
+
+q("pandas", r"""
+import pandas as pd
+
+with open("codes.csv", "w") as f:
+    f.write("city,zip\nEilat,08800\nHaifa,31000\n")
+
+a = pd.read_csv("codes.csv")
+b = pd.read_csv("codes.csv", dtype={"zip": str})
+print(a["zip"].tolist(), b["zip"].tolist())
+""", ["[8800, 31000] ['08800', '31000']", "['08800', '31000'] ['08800', '31000']",
+      "[8800, 31000] [8800, 31000]", "[08800, 31000] ['08800', '31000']"], 0,
+"pandas מזהה שהעמודה נראית כמו מספרים וממיר אותה ל-int, ואז האפס המוביל נעלם. מיקוד, טלפון ות\"ז צריך לקרוא כטקסט עם `dtype`.",
+["נכון.",
+ "בלי dtype, pandas ממיר למספר ומאבד את האפס.",
+ "`dtype={\"zip\": str}` שומר את הטקסט כמו שהוא.",
+ "מספר שלם לא יכול להתחיל ב-0. זה אפילו לא תחביר חוקי בפייתון."], "טריק")
+
+q("pandas", r"""
+import pandas as pd
+
+with open("data.csv", "w") as f:
+    f.write("name;age\nDana;25\nGil;28\n")
+
+df = pd.read_csv("data.csv")
+print(df.shape, df.columns.tolist())
+
+df2 = pd.read_csv("data.csv", sep=";")
+print(df2.shape)
+""", ["(2, 2) ['name', 'age']\n(2, 2)", "(2, 1) ['name;age']\n(2, 2)", E("ParserError"), "(3, 1) ['name;age']\n(2, 2)"], 1,
+"ברירת המחדל של `read_csv` היא פסיק. בקובץ שמופרד בנקודה-פסיק אין פסיקים, אז כל שורה נקראת כעמודה אחת. קבצי CSV מ-Excel בעברית משתמשים לפעמים ב-`;`, ואז צריך `sep=\";\"`.",
+["בלי sep, pandas לא מזהה את `;` כמפריד.",
+ "נכון.",
+ "pandas לא נכשל. הוא פשוט קורא הכול כעמודה אחת.",
+ "השורה הראשונה היא עדיין כותרת."], "CSV")
+
+q("pandas", r"""
+import pandas as pd
+
+with open("prices.csv", "w") as f:
+    f.write("name, price\nPen, 5\nBook, 40\n")
+
+df = pd.read_csv("prices.csv")
+print(df.columns.tolist())
+print(df["price"].sum())
+""", ["['name', 'price']\n45", "['name', ' price']\n" + E("KeyError"), "['name', ' price']\n45", E("KeyError")], 1,
+"הרווח אחרי הפסיק נשאר חלק משם העמודה: `' price'`. לכן `df[\"price\"]` לא קיים. פתרונות: `read_csv(..., skipinitialspace=True)` או `df.columns = df.columns.str.strip()`.",
+["pandas לא מסיר רווחים משמות עמודות לבד.",
+ "נכון: ההדפסה הראשונה מצליחה, השנייה נכשלת.",
+ "העמודה נקראת ' price' עם רווח, אז 'price' לא נמצא.",
+ "השורה הראשונה מודפסת לפני השגיאה."], "באג שקט")
+
+q("pandas", r"""
+import pandas as pd
+
+df = pd.DataFrame({
+    "name": ["Dana", "Yossi", "Gil", "Noa"],
+    "age": [25, 31, 28, 35],
+})
+older = df[df["age"] > 27]
+print(older["name"].tolist(), len(df), older.index.tolist())
+""", ["['Yossi', 'Gil', 'Noa'] 3 [0, 1, 2]", "['Yossi', 'Gil', 'Noa'] 4 [1, 2, 3]",
+      "['Yossi', 'Noa'] 4 [1, 3]", "['Yossi', 'Gil', 'Noa'] 4 [0, 1, 2]"], 1,
+"סינון יוצר DataFrame חדש ולא משנה את df. השורות שנבחרו שומרות את האינדקס המקורי שלהן (1, 2, 3), הן לא ממוספרות מחדש. כדי למספר מחדש: `reset_index(drop=True)`.",
+["df לא השתנה, ויש בו עדיין 4 שורות.",
+ "נכון.",
+ "28 > 27, אז Gil נכלל.",
+ "האינדקס לא מתאפס אחרי סינון."])
+
+q("pandas", r"""
+import pandas as pd
+
+df = pd.DataFrame({"age": [25, 31, 28], "city": ["Haifa", "Tel Aviv", "Haifa"]})
+print(df[(df["age"] > 26) & (df["city"] == "Haifa")].shape)
+print(df[df["age"] > 26 and df["city"] == "Haifa"].shape)
+""", ["(1, 2)\n(1, 2)", "(1, 2)\n" + E("ValueError"), "(2, 2)\n" + E("ValueError"), E("TypeError")], 1,
+"ב-pandas משלבים תנאים עם `&` (וגם) ו-`|` (או), וכל תנאי בסוגריים. המילה `and` מנסה להפוך Series שלם ל-True או False אחד, ו-pandas זורק: The truth value of a Series is ambiguous.",
+["`and` לא עובד על Series.",
+ "נכון.",
+ "רק Gil עומד בשני התנאים (28 והעיר Haifa).",
+ "השורה הראשונה תקינה ומודפסת."], "טריק קלאסי")
+
+q("pandas", r"""
+import pandas as pd
+
+df = pd.DataFrame({"x": [10, 20, 30, 40]})
+print(len(df.loc[0:2]), len(df.iloc[0:2]))
+""", ["2 2", "3 2", "3 3", "2 3"], 1,
+"`iloc` עובד לפי מיקום, כמו חיתוך רגיל בפייתון: הסוף לא כלול (0, 1). `loc` עובד לפי תווית האינדקס, ושם הסוף כן כלול (0, 1, 2).",
+["loc כולל את הסוף.",
+ "נכון: אחד הבלבולים הנפוצים ב-pandas.",
+ "iloc לא כולל את הסוף, כמו חיתוך של רשימה.",
+ "זה הפוך."], "טריק")
+
+q("pandas", r"""
+import pandas as pd
+
+df = pd.DataFrame({"score": [90, 75, 60]}, index=["dana", "gil", "noa"])
+print(df.loc["gil", "score"], df.iloc[0, 0], df.iloc[-1]["score"])
+""", ["75 90 60", "90 75 60", "75 75 60", E("KeyError")], 0,
+"`loc` מחפש לפי תווית (\"gil\"). `iloc` מחפש לפי מיקום: [0, 0] הוא השורה והעמודה הראשונות. `iloc[-1]` הוא השורה האחרונה.",
+["נכון.",
+ "`loc[\"gil\"]` הוא השורה של gil, לא הראשונה.",
+ "`iloc[0, 0]` הוא השורה הראשונה, dana.",
+ "התווית \"gil\" קיימת באינדקס."])
+
+qe(r"""
+import pandas as pd
+
+df = pd.DataFrame({"score": [90, 75, 60]}, index=["dana", "gil", "noa"])
+print(df.loc[0])
+""", ["KeyError", "IndexError", "ValueError", "TypeError"], 0,
+"האינדקס הוא שמות, לא מספרים. `loc` מחפש תווית בשם 0 ולא מוצא. לשורה הראשונה לפי מיקום: `df.iloc[0]`.",
+["נכון: loc מחפש תווית שלא קיימת.",
+ "IndexError מתקבל מ-iloc עם מיקום מחוץ לטווח, למשל `df.iloc[10]`.",
+ "0 הוא ערך תקין, הוא פשוט לא קיים כתווית.",
+ "loc מקבל כל סוג של תווית."], "טריק", cat="pandas")
+
+q("pandas", r"""
+import pandas as pd
+
+df = pd.DataFrame({"name": ["Gil", "Dana", "Noa"], "age": [28, 25, 35]})
+df.sort_values("age")
+print(df["name"].tolist())
+
+df = df.sort_values("age", ascending=False)
+print(df["name"].tolist(), df.index.tolist())
+""", ["['Dana', 'Gil', 'Noa']\n['Noa', 'Gil', 'Dana'] [0, 1, 2]", "['Gil', 'Dana', 'Noa']\n['Noa', 'Gil', 'Dana'] [2, 0, 1]",
+      "['Gil', 'Dana', 'Noa']\n['Noa', 'Gil', 'Dana'] [0, 1, 2]", "['Dana', 'Gil', 'Noa']\n['Noa', 'Gil', 'Dana'] [2, 0, 1]"], 1,
+"`sort_values` מחזיר DataFrame חדש ולא משנה את המקורי. הקריאה הראשונה לא נשמרה במשתנה, אז df לא השתנה. בשנייה שמרנו את התוצאה. האינדקס זז יחד עם השורות.",
+["המיון הראשון לא נשמר, וגם האינדקס לא מתאפס.",
+ "נכון.",
+ "האינדקס נשאר צמוד לשורה, לא מתאפס.",
+ "המיון הראשון לא שינה את df."], "טריק")
+
+q("pandas", r"""
+import pandas as pd
+
+df = pd.DataFrame({
+    "city": ["Haifa", "Eilat", "Haifa", "Eilat", "Haifa"],
+    "sales": [10, 5, 20, 15, 30],
+})
+totals = df.groupby("city")["sales"].sum()
+print(totals.index.tolist(), totals.tolist())
+""", ["['Haifa', 'Eilat'] [60, 20]", "['Eilat', 'Haifa'] [20, 60]", "['Haifa', 'Eilat'] [20, 60]", "['Eilat', 'Haifa'] [5, 10]"], 1,
+"`groupby` מאחד שורות לפי ערך העמודה ומחשב לכל קבוצה. כברירת מחדל הקבוצות ממוינות לפי המפתח, אז Eilat לפני Haifa. Eilat: 5 + 15 = 20, Haifa: 10 + 20 + 30 = 60.",
+["groupby ממיין את הקבוצות לפי אלפבית, לא לפי סדר ההופעה.",
+ "נכון.",
+ "הסכומים לא תואמים: Haifa היא 60.",
+ "sum מחבר את כל הערכים בקבוצה."])
+
+q("pandas", r"""
+import pandas as pd
+
+s = pd.Series(["a", "b", "a", "c", "a", "b"])
+counts = s.value_counts()
+print(counts.index[0], counts.iloc[0], len(counts))
+""", ["a 3 3", "a 3 6", "c 1 3", "a 1 3"], 0,
+"`value_counts` סופר כמה פעמים מופיע כל ערך וממיין מהנפוץ ביותר. \"a\" מופיע 3 פעמים ונמצא ראשון. יש 3 ערכים שונים.",
+["נכון.",
+ "len סופר את הערכים השונים, לא את כל האיברים.",
+ "המיון הוא מהנפוץ לנדיר.",
+ "`iloc[0]` הוא הספירה של הראשון: 3."])
+
+qe(r"""
+import pandas as pd
+
+df = pd.DataFrame({"name": ["Dana"], "age": [25]})
+df = df.drop("age")
+""", ["KeyError", "ValueError", "AttributeError", "IndexError"], 0,
+"`drop` מוחק כברירת מחדל שורות (axis=0), אז הוא מחפש את \"age\" באינדקס של השורות ולא מוצא. למחיקת עמודה: `df.drop(columns=\"age\")` או `df.drop(\"age\", axis=1)`.",
+["נכון: ['age'] not found in axis.",
+ "השם תקין. הבעיה היא באיזה ציר מחפשים.",
+ "drop קיים ב-DataFrame.",
+ "השגיאה היא על תווית חסרה, לא על מיקום."], "טריק קלאסי", cat="pandas")
+
+q("pandas", r"""
+import pandas as pd
+
+df = pd.DataFrame({"name": ["Dana", "Gil"], "age": [25, 28]})
+result = df.drop(columns="age", inplace=True)
+print(result, df.columns.tolist())
+""", ["None ['name']", "['name'] ['name']", "None ['name', 'age']", E("TypeError")], 0,
+"עם `inplace=True` הפעולה משנה את df עצמו ומחזירה None, בדיוק כמו `list.sort()`. לכן לא כותבים `df = df.drop(..., inplace=True)`: זה יהפוך את df ל-None.",
+["נכון.",
+ "עם inplace לא מוחזר DataFrame.",
+ "inplace כן שינה את df.",
+ "inplace הוא פרמטר חוקי של drop."], "טריק")
+
+q("pandas", r"""
+import pandas as pd
+
+df = pd.DataFrame({"name": ["Dana", "Gil"], "age": [25, 28]})
+print(df.to_json(orient="records"))
+print(df.to_json())
+""", ['[{"name":"Dana","age":25},{"name":"Gil","age":28}]\n{"name":{"0":"Dana","1":"Gil"},"age":{"0":25,"1":28}}',
+      '[{"name":"Dana","age":25},{"name":"Gil","age":28}]\n[{"name":"Dana","age":25},{"name":"Gil","age":28}]',
+      '[{"name": "Dana", "age": 25}, {"name": "Gil", "age": 28}]\n{"name": ["Dana", "Gil"], "age": [25, 28]}',
+      "[{'name': 'Dana', 'age': 25}, {'name': 'Gil', 'age': 28}]\n{'name': {0: 'Dana', 1: 'Gil'}, 'age': {0: 25, 1: 28}}"], 0,
+"`orient=\"records\"` יוצר רשימה של אובייקטים, שורה אחת לכל אובייקט. זה הפורמט הנוח ל-API. ברירת המחדל היא לפי עמודות: כל עמודה היא מילון של אינדקס → ערך, והאינדקס הופך למחרוזת. pandas כותב JSON צפוף, בלי רווחים.",
+["נכון.",
+ "ברירת המחדל היא orient=\"columns\", לא records.",
+ "to_json לא מוסיף רווחים, וברירת המחדל שומרת את האינדקס כמפתחות.",
+ "to_json מחזיר JSON עם גרשיים כפולים, לא מילון של פייתון."], "JSON")
+
+q("pandas", r"""
+import json
+import pandas as pd
+
+people = [{"name": "Dana", "age": 25}, {"name": "Gil"}]
+with open("people.json", "w") as f:
+    json.dump(people, f)
+
+df = pd.read_json("people.json")
+print(df.shape, df["age"].tolist())
+""", ["(2, 2) [25.0, nan]", E("KeyError"), "(2, 2) [25, None]", "(1, 2) [25]"], 0,
+"`read_json` עם רשימת אובייקטים יוצר שורה לכל אובייקט. ל-Gil אין age, אז שם יש NaN, ולכן כל העמודה הופכת ל-float (25.0).",
+["נכון.",
+ "מפתח חסר באחד האובייקטים לא זורק שגיאה. הוא הופך ל-NaN.",
+ "pandas משתמש ב-NaN לערך חסר מספרי, והעמודה הופכת ל-float.",
+ "Gil לא נמחק, הוא נכנס עם ערך חסר."], "JSON")
+
+q("pandas", r"""
+import pandas as pd
+
+data = [
+    {"name": "Dana", "address": {"city": "Haifa", "zip": "3100"}},
+    {"name": "Gil", "address": {"city": "Eilat", "zip": "8800"}},
+]
+df = pd.json_normalize(data)
+print(df.columns.tolist())
+""", ["['name', 'address']", "['name', 'address.city', 'address.zip']", "['name', 'city', 'zip']", "['name', 'address_city', 'address_zip']"], 1,
+"`json_normalize` משטח JSON מקונן לעמודות. כל שדה פנימי מקבל שם עם נקודה: `address.city`. לעומת זאת `pd.DataFrame(data)` היה משאיר את address כמילון בתוך תא אחד.",
+["זה מה ש-`pd.DataFrame(data)` היה נותן.",
+ "נכון.",
+ "השם כולל גם את המפתח החיצוני, address.",
+ "המפריד הוא נקודה. אפשר לשנות אותו עם `sep=\"_\"`."], "JSON")
+
+q("pandas", r"""
+import pandas as pd
+
+df = pd.DataFrame({"product": ["Pen", "Book"], "price": [5, 40]})
+df.to_excel("shop.xlsx", index=False)
+
+back = pd.read_excel("shop.xlsx")
+print(back.columns.tolist(), back["price"].sum())
+""", ["['product', 'price'] 45", "['Unnamed: 0', 'product', 'price'] 45", "['product', 'price'] 540", E("ModuleNotFoundError")], 0,
+"`index=False` מונע שמירה של עמודת האינדקס, אז רק שתי העמודות נשמרות. המספרים נשמרים ב-Excel כמספרים, אז sum מחבר: 5 + 40. (צריך את הספרייה openpyxl: `pip install openpyxl`.)",
+["נכון.",
+ "Unnamed: 0 מופיע רק כשלא כותבים index=False.",
+ "price נשמר כמספר, לא כטקסט, אז אין שרשור.",
+ "openpyxl מותקנת כאן. בלעדיה הייתה נזרקת ImportError."], "Excel")
+
+q("pandas", r"""
+import pandas as pd
+
+q1 = pd.DataFrame({"sales": [10, 20]})
+q2 = pd.DataFrame({"sales": [30, 40, 50]})
+with pd.ExcelWriter("report.xlsx") as writer:
+    q1.to_excel(writer, sheet_name="Q1", index=False)
+    q2.to_excel(writer, sheet_name="Q2", index=False)
+
+first = pd.read_excel("report.xlsx")
+every = pd.read_excel("report.xlsx", sheet_name=None)
+print(len(first), type(every).__name__, list(every))
+""", ["5 DataFrame ['sales']", "2 dict ['Q1', 'Q2']", "3 dict ['Q1', 'Q2']", "2 list ['Q1', 'Q2']"], 1,
+"`read_excel` קורא כברירת מחדל רק את הגיליון הראשון (Q1, שתי שורות). עם `sheet_name=None` הוא קורא את כל הגיליונות ומחזיר מילון: שם גיליון → DataFrame.",
+["read_excel לא מאחד גיליונות.",
+ "נכון.",
+ "ברירת המחדל היא הגיליון הראשון, Q1, שבו 2 שורות.",
+ "sheet_name=None מחזיר מילון, לא רשימה."], "Excel")
+
+qe(r"""
+import pandas as pd
+
+pd.DataFrame({"a": [1]}).to_excel("report.xlsx", sheet_name="Q1")
+df = pd.read_excel("report.xlsx", sheet_name="Q3")
+""", ["ValueError", "KeyError", "FileNotFoundError", "IndexError"], 0,
+"הקובץ קיים, אבל אין בו גיליון בשם Q3. pandas זורק ValueError: Worksheet named 'Q3' not found.",
+["נכון.",
+ "למרות שזה מרגיש כמו מפתח חסר, pandas זורק כאן ValueError.",
+ "הקובץ עצמו קיים.",
+ "שם גיליון כמחרוזת לא קשור לאינדקס. IndexError היה מתקבל עם מספר גיליון גבוה מדי."], "Excel", cat="pandas")
+
+q("pandas", r"""
+import pandas as pd
+
+raw = pd.DataFrame([
+    ["Sales report", None],
+    ["name", "total"],
+    ["Dana", 100],
+    ["Gil", 250],
+])
+raw.to_excel("raw.xlsx", index=False, header=False)
+
+df = pd.read_excel("raw.xlsx", skiprows=1)
+print(df.columns.tolist(), df["total"].sum())
+""", ["['Sales report', 'Unnamed: 1'] 350", "['name', 'total'] 350", "['name', 'total'] 100250", E("KeyError")], 1,
+"בקובץ Excel אמיתי יש לפעמים שורת כותרת לדוח מעל הטבלה. `skiprows=1` מדלג עליה, והשורה הבאה (name, total) הופכת לכותרות.",
+["זה מה שהיה מתקבל בלי skiprows.",
+ "נכון.",
+ "total נקרא כמספרים, אז מתבצע חיבור ולא שרשור.",
+ "אחרי הדילוג העמודה total קיימת."], "Excel")
+
+q("pandas", r"""
+import pandas as pd
+
+a = pd.Series([1, 2], index=["x", "y"])
+b = pd.Series([10, 20], index=["y", "z"])
+print((a + b).tolist())
+""", ["[11, 22]", "[nan, 12.0, nan]", "[1, 12, 20]", E("ValueError")], 1,
+"פעולות בין Series מתבצעות לפי תוויות האינדקס, לא לפי המיקום. רק y קיים בשניהם (2 + 10 = 12). x ו-z קיימים רק באחד מהם, ולכן התוצאה שם היא NaN.",
+["החיבור לא לפי מיקום אלא לפי אינדקס.",
+ "נכון: יישור לפי אינדקס.",
+ "pandas לא משאיר ערך כשהוא חסר באחד הצדדים. הוא שם NaN. (`a.add(b, fill_value=0)` היה נותן את זה.)",
+ "אינדקסים שונים לא זורקים שגיאה, הם מתיישרים."], "טריק מתקדם")
+
+q("pandas", r"""
+import pandas as pd
+
+df = pd.DataFrame({"price": [5, 40, 12], "qty": [10, 1, 3]})
+df["total"] = df["price"] * df["qty"]
+print(df["total"].tolist(), (df["total"] > 40).sum(), df["total"].max())
+""", ["[50, 40, 36] 1 50", "[50, 40, 36] 2 50", "[15, 41, 15] 0 41", "[50, 40, 36] [True, False, False] 50"], 0,
+"פעולה בין עמודות מתבצעת שורה מול שורה. השוואה יוצרת Series של True/False, ו-`sum` סופר כמה True יש. 40 > 40 הוא False.",
+["נכון.",
+ "40 לא גדול מ-40.",
+ "`*` הוא כפל, לא חיבור.",
+ "`.sum()` הופך את ה-True/False למספר."])
+
+q("pandas", r"""
+import pandas as pd
+
+df = pd.DataFrame({"n": range(8)})
+print(len(df.head()), len(df.tail(3)), df.head(2)["n"].tolist())
+""", ["5 3 [0, 1]", "8 3 [0, 1]", "10 3 [0, 1]", "5 3 [6, 7]"], 0,
+"`head()` בלי מספר מחזיר 5 שורות ראשונות. `tail(3)` מחזיר 3 אחרונות. `head(2)` מחזיר 2 ראשונות.",
+["נכון.",
+ "head מחזיר חלק מהשורות, לא את כולן.",
+ "ברירת המחדל היא 5, לא 10.",
+ "head הוא מההתחלה, tail הוא מהסוף."])
+
+q("pandas", r"""
+import pandas as pd
+
+df = pd.DataFrame({"a": [1, None, 3], "b": [None, None, 6]})
+print(len(df.dropna()), len(df), df.fillna(0)["b"].tolist())
+""", ["1 3 [0.0, 0.0, 6.0]", "1 1 [0.0, 0.0, 6.0]", "2 3 [0, 0, 6]", "0 3 [0.0, 0.0, 6.0]"], 0,
+"`dropna` מוחק כל שורה שיש בה ערך חסר אחד לפחות, אז נשארת רק השורה האחרונה. גם dropna וגם fillna מחזירים DataFrame חדש, ו-df עצמו לא משתנה. העמודה היא float בגלל ה-None, ולכן 0.0.",
+["נכון.",
+ "dropna לא שינה את df, כי התוצאה לא נשמרה.",
+ "רק בשורה האחרונה אין ערכים חסרים, והעמודה היא float.",
+ "השורה האחרונה מלאה (3, 6), אז היא נשארת."])
+
+q("pandas", r"""
+import numpy as np
+import pandas as pd
+
+s = pd.Series([1, np.nan, 3])
+print(np.nan == np.nan, (s == np.nan).sum(), s.isna().sum())
+""", ["True 1 1", "False 0 1", "False 1 1", "True 0 1"], 1,
+"NaN לא שווה לשום דבר, אפילו לא לעצמו. לכן השוואה עם `== np.nan` לא מוצאת אף ערך חסר. הדרך הנכונה לבדוק: `isna()`.",
+["NaN == NaN הוא False.",
+ "נכון.",
+ "השוואה ל-NaN תמיד False, אז הסכום 0.",
+ "NaN לא שווה לעצמו."], "טריק")
+
+q("pandas", r"""
+import pandas as pd
+
+df = pd.DataFrame({"name": [" dana ", "GIL", "noa levi"]})
+print(df["name"].str.strip().str.title().tolist())
+""", ["['Dana', 'Gil', 'Noa Levi']", "[' Dana ', 'Gil', 'Noa levi']", "['Dana', 'GIL', 'Noa levi']", E("AttributeError")], 0,
+"`.str` מאפשר להפעיל מתודות של מחרוזת על כל העמודה בבת אחת. `strip` מסיר רווחים, ו-`title` הופך את האות הראשונה בכל מילה לגדולה ואת השאר לקטנות.",
+["נכון.",
+ "strip כבר הסיר את הרווחים, ו-title מגדיל כל מילה.",
+ "title גם מקטין את שאר האותיות.",
+ "`.str` הוא accessor קיים בעמודות טקסט."])
+
+q("pandas", r"""
+import pandas as pd
+
+students = pd.DataFrame({"id": [1, 2, 3], "name": ["Dana", "Gil", "Noa"]})
+grades = pd.DataFrame({"id": [1, 3, 4], "grade": [90, 80, 70]})
+merged = pd.merge(students, grades, on="id")
+print(merged["name"].tolist(), merged.shape)
+""", ["['Dana', 'Gil', 'Noa'] (3, 3)", "['Dana', 'Noa'] (2, 3)", "['Dana', 'Noa'] (2, 4)", "['Dana', 'Gil', 'Noa', nan] (4, 3)"], 1,
+"`merge` מחבר טבלאות לפי עמודה משותפת. ברירת המחדל היא inner join: נשארות רק השורות שה-id שלהן קיים בשתי הטבלאות (1 ו-3). עמודת id מופיעה פעם אחת.",
+["Gil (id 2) לא קיים בטבלת הציונים, אז הוא לא נכנס ב-inner join.",
+ "נכון.",
+ "id משותף ולא משוכפל, אז יש 3 עמודות.",
+ "זה מה שמתקבל עם `how=\"outer\"`."])
 
 # שיוך שאלות קיימות לנושאים החדשים
 MOVE = {

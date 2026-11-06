@@ -152,6 +152,7 @@ header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-be
   #nextUn{grid-column:1 / -1;order:3}
   .dot{width:32px;height:32px}
 }
+.out,.actual .code{white-space:pre-wrap;overflow-wrap:anywhere}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
@@ -203,7 +204,7 @@ Q.forEach((q,i)=>q.id=i);
 const CATS = [
   ['all','הכול'],['vars','משתנים'],['cond','תנאים'],['loops','לולאות'],
   ['lists','רשימות'],['tuples','tuple ו-set'],['dicts','מילונים'],['strings','מחרוזות'],
-  ['functions','פונקציות'],['exceptions','ניהול שגיאות'],['raise','איזו חריגה?'],['files','קבצים'],['classes','מחלקות'],['poly','פולימורפיזם'],
+  ['functions','פונקציות'],['exceptions','ניהול שגיאות'],['raise','איזו חריגה?'],['files','קבצים'],['pandas','Pandas'],['classes','מחלקות'],['poly','פולימורפיזם'],
   ['iter','גנרטורים'],['tricks','טריקים'],['bugs','באגים ושגיאות'],['mine','מהקוד שלך']
 ];
 const CATNAME = Object.fromEntries(CATS);
