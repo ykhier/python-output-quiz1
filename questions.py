@@ -1,9 +1,16 @@
-import io, re, json, contextlib, textwrap
+import io, re, json, contextlib, textwrap, tempfile, os
 
 Q = []
-def q(cat, code, opts, ans, explain, why, title=""):
-    Q.append(dict(cat=cat, code=textwrap.dedent(code).strip("\n"), opts=opts, ans=ans,
-                  explain=explain, why=why, title=title))
+def q(cat, code, opts, ans, explain, why, title="", prompt=""):
+    d = dict(cat=cat, code=textwrap.dedent(code).strip("\n"), opts=opts, ans=ans,
+             explain=explain, why=why, title=title)
+    if prompt:
+        d["prompt"] = prompt
+    Q.append(d)
+
+def qe(code, names, ans, explain, why, title=""):
+    """Question whose four options are all exception types."""
+    q("raise", code, [E(n) for n in names], ans, explain, why, title, prompt="איזו חריגה תיזרק?")
 
 E = lambda name: "ERR:" + name
 
@@ -2356,6 +2363,740 @@ except InsufficientFunds as e:
  "הקריאה הראשונה הצליחה ומודפסת.",
  "`print(e)` מציג את ההודעה, לא את שם המחלקה."])
 
+# ═════════════ איזו חריגה תיזרק? (כל התשובות הן חריגות) ═════════════
+qe("""
+age = int("12a")
+""", ["ValueError", "TypeError", "NameError", "SyntaxError"], 0,
+"`int` מקבל מחרוזת, אז הטיפוס נכון. אבל התוכן \"12a\" הוא לא מספר שלם, ולכן זו בעיה בערך: ValueError.",
+["נכון: invalid literal for int() with base 10.",
+ "TypeError הוא כשהטיפוס עצמו לא מתאים, למשל `int(None)`. כאן הטיפוס (str) תקין.",
+ "NameError הוא שם שלא הוגדר. `int` קיים.",
+ "התחביר תקין. הבעיה מתגלה רק בזמן ריצה."])
+
+qe("""
+print("Age: " + 30)
+""", ["ValueError", "TypeError", "AttributeError", "KeyError"], 1,
+"אי אפשר לחבר str עם int. הבעיה היא בשילוב של שני טיפוסים, ולכן TypeError. התיקון: `str(30)` או f-string.",
+["ValueError הוא ערך לא מתאים לטיפוס נכון. כאן הטיפוסים עצמם לא מתאימים זה לזה.",
+ "נכון: can only concatenate str (not \"int\") to str.",
+ "לא ניגשים כאן לשום תכונה או מתודה.",
+ "אין כאן מילון."])
+
+qe("""
+value = None
+number = int(value)
+""", ["ValueError", "TypeError", "AttributeError", "NameError"], 1,
+"`int(\"abc\")` זורק ValueError, אבל `int(None)` זורק TypeError: None הוא בכלל לא מחרוזת או מספר, אז הטיפוס לא נתמך. זה בדיוק מה ששובר את `optional_int` מהתרגיל אם שולחים לו None.",
+["רוב האנשים בוחרים בזה, אבל ValueError הוא רק כשהטיפוס נתמך והערך לא. None הוא טיפוס לא נתמך.",
+ "נכון: int() argument must be a string, a bytes-like object or a real number, not 'NoneType'.",
+ "לא ניגשים לתכונה של None.",
+ "value מוגדר, הוא פשוט None."], "טריק")
+
+qe("""
+price = float("3,5")
+""", ["ValueError", "TypeError", "SyntaxError", "IndexError"], 0,
+"פייתון מצפה לנקודה עשרונית, לא לפסיק. \"3,5\" הוא מחרוזת (טיפוס נכון) עם תוכן לא חוקי, ולכן ValueError.",
+["נכון: could not convert string to float.",
+ "float מקבל מחרוזות, אז הטיפוס תקין.",
+ "הפסיק נמצא בתוך מחרוזת, אז התחביר תקין.",
+ "אין כאן גישה לאינדקס."])
+
+qe("""
+users = {"dana": "dana@mail.com"}
+print(users["Dana"])
+""", ["KeyError", "IndexError", "NameError", "ValueError"], 0,
+"מפתחות במילון רגישים לאותיות גדולות וקטנות. \"Dana\" ו-\"dana\" הם מפתחות שונים, ו-\"Dana\" לא קיים. לכן `find_email` מהתרגיל תופס KeyError.",
+["נכון: KeyError: 'Dana'.",
+ "IndexError הוא ברשימות, מחרוזות ו-tuples. במילון מקבלים KeyError.",
+ "\"Dana\" היא מחרוזת, לא שם של משתנה.",
+ "ValueError לא קשור לגישה למילון."])
+
+qe("""
+nums = [10, 20, 30]
+print(nums[len(nums)])
+""", ["IndexError", "KeyError", "ValueError", "TypeError"], 0,
+"`len(nums)` הוא 3, אבל האינדקסים הם 0, 1, 2. האיבר האחרון הוא `nums[len(nums) - 1]` או `nums[-1]`.",
+["נכון: list index out of range.",
+ "KeyError הוא במילונים.",
+ "האינדקס הוא מספר שלם תקין, רק מחוץ לטווח.",
+ "הטיפוס של האינדקס (int) נכון."])
+
+qe("""
+seen = set()
+seen.pop()
+""", ["IndexError", "KeyError", "ValueError", "TypeError"], 1,
+"`pop` על set ריק זורק KeyError, לא IndexError. ל-set אין אינדקסים, ופייתון מתייחס אליו כמו למילון בלי ערכים. ברשימה ריקה `pop` כן זורק IndexError.",
+["זה מה שקורה עם `[].pop()` ברשימה. ב-set זה שונה.",
+ "נכון: pop from an empty set.",
+ "ValueError לא קשור ל-pop.",
+ "pop על set הוא פעולה חוקית מבחינת הטיפוס."], "טריק")
+
+qe("""
+names = ["Dana", "Yossi"]
+names.remove("Gil")
+""", ["ValueError", "KeyError", "IndexError", "TypeError"], 0,
+"`list.remove` זורק ValueError כשהערך לא ברשימה. ב-set, `remove` זורק KeyError. קל להתבלבל ביניהם.",
+["נכון: list.remove(x): x not in list.",
+ "KeyError הוא מ-`set.remove` או ממילון. ברשימה זה ValueError.",
+ "remove מחפש ערך, לא אינדקס.",
+ "שליחת מחרוזת ל-remove חוקית."], "טריק")
+
+qe("""
+total = 0
+for n in [1, 2, 3]:
+    totl += n
+""", ["NameError", "AttributeError", "TypeError", "ValueError"], 0,
+"שגיאת כתיב: `totl` במקום `total`. מחוץ לפונקציה, שימוש בשם שלא הוגדר זורק NameError.",
+["נכון: name 'totl' is not defined.",
+ "AttributeError הוא תכונה חסרה באובייקט, למשל `x.foo`.",
+ "החיבור עצמו היה תקין אילו totl היה קיים.",
+ "אין כאן המרה של ערך."])
+
+qe("""
+name = None
+print(name.upper())
+""", ["AttributeError", "TypeError", "NameError", "ValueError"], 0,
+"ל-None אין מתודה `upper`. גישה למתודה או תכונה שלא קיימת זורקת AttributeError. זה קורה הרבה כשפונקציה מחזירה None בלי שציפינו.",
+["נכון: 'NoneType' object has no attribute 'upper'.",
+ "הבעיה היא חיפוש המתודה, לא פעולה בין טיפוסים.",
+ "name מוגדר. הערך שלו הוא None.",
+ "אין המרה של ערך."])
+
+qe("""
+nums = [3, 1, 2]
+nums.sort().reverse()
+""", ["AttributeError", "TypeError", "ValueError", "IndexError"], 0,
+"`sort()` ממיין במקום ומחזיר None. לכן `.reverse()` נקרא על None, ול-None אין מתודה כזו. הנכון: `nums.sort(reverse=True)`.",
+["נכון: 'NoneType' object has no attribute 'reverse'.",
+ "השגיאה היא בחיפוש המתודה על None.",
+ "המיון עצמו הצליח.",
+ "אין גישה לאינדקס."], "טריק")
+
+qe("""
+grades = []
+average = sum(grades) / len(grades)
+""", ["ZeroDivisionError", "ValueError", "TypeError", "IndexError"], 0,
+"`sum([])` הוא 0 ו-`len([])` הוא 0. חלוקה ב-0 זורקת ZeroDivisionError. כדאי לבדוק קודם `if grades:`.",
+["נכון: division by zero.",
+ "sum ו-len עובדים על רשימה ריקה בלי שגיאה.",
+ "0 / 0 הם שני מספרים, אז הטיפוסים תקינים.",
+ "לא ניגשים לאיבר ברשימה."])
+
+qe("""
+with open("missing.txt") as file:
+    text = file.read()
+""", ["FileNotFoundError", "NameError", "ValueError", "PermissionError"], 0,
+"פתיחה לקריאה (ברירת המחדל היא \"r\") של קובץ שלא קיים זורקת FileNotFoundError. זו בדיוק החריגה ש-`read_text` מהתרגיל תופס.",
+["נכון: No such file or directory.",
+ "שם הקובץ הוא מחרוזת, לא משתנה.",
+ "ValueError לא קשור לקובץ חסר.",
+ "PermissionError הוא כשהקובץ קיים אבל אין הרשאה לקרוא אותו."])
+
+qe("""
+with open("notes.txt", "w") as file:
+    file.write("hello")
+    print(file.read())
+""", ["UnsupportedOperation", "PermissionError", "ValueError", "FileNotFoundError"], 0,
+"מצב \"w\" הוא כתיבה בלבד. ניסיון לקרוא ממנו זורק `io.UnsupportedOperation: not readable`. כדי גם לכתוב וגם לקרוא משתמשים ב-\"w+\" או \"r+\".",
+["נכון: not readable.",
+ "יש הרשאה לקובץ. הבעיה היא במצב הפתיחה.",
+ "UnsupportedOperation יורשת מ-ValueError, אבל השם המדויק של החריגה הוא UnsupportedOperation.",
+ "\"w\" יוצר את הקובץ אם הוא לא קיים."], "טריק")
+
+qe("""
+with open("data.txt", "w") as file:
+    file.write("hi")
+
+with open("data.txt") as file:
+    pass
+
+print(file.read())
+""", ["ValueError", "UnsupportedOperation", "FileNotFoundError", "NameError"], 0,
+"`with` סוגר את הקובץ כשהבלוק נגמר. המשתנה file עדיין קיים, אבל הקובץ סגור, וקריאה ממנו זורקת `ValueError: I/O operation on closed file`. את הקריאה צריך לעשות בתוך ה-with.",
+["נכון: I/O operation on closed file.",
+ "הקובץ נפתח לקריאה, אז קריאה כן נתמכת. הבעיה היא שהוא סגור.",
+ "הקובץ נוצר בבלוק הראשון.",
+ "משתנה של with נשאר קיים גם אחרי הבלוק."], "טריק")
+
+qe("""
+with open("count.txt", "w") as file:
+    file.write(42)
+""", ["TypeError", "ValueError", "UnsupportedOperation", "AttributeError"], 0,
+"בקובץ טקסט `write` מקבל רק מחרוזת. צריך `file.write(str(42))`. (`print` ממיר לבד, `write` לא.)",
+["נכון: write() argument must be str, not int.",
+ "הבעיה היא בטיפוס של הארגומנט, לא בתוכן שלו.",
+ "\"w\" תומך בכתיבה.",
+ "המתודה write קיימת."])
+
+qe("""
+with open("report.txt", "w") as file:
+    file.write("v1")
+
+with open("report.txt", "x") as file:
+    file.write("v2")
+""", ["FileExistsError", "PermissionError", "FileNotFoundError", "ValueError"], 0,
+"מצב \"x\" יוצר קובץ חדש בלבד, ונכשל אם הקובץ כבר קיים. זו דרך בטוחה לא לדרוס קובץ בטעות, בניגוד ל-\"w\" שדורס בלי לשאול.",
+["נכון: File exists.",
+ "יש הרשאות. \"x\" פשוט מסרב לדרוס.",
+ "הקובץ קיים, נוצר בבלוק הראשון.",
+ "\"x\" הוא מצב פתיחה חוקי."], "טריק")
+
+qe("""
+import json
+data = json.loads("{'name': 'Dana'}")
+""", ["JSONDecodeError", "SyntaxError", "KeyError", "TypeError"], 0,
+"ב-JSON מחרוזות חייבות להיות בגרשיים כפולים. גרשיים בודדים חוקיים בפייתון אבל לא ב-JSON. החריגה היא `json.JSONDecodeError`, שיורשת מ-ValueError.",
+["נכון: Expecting property name enclosed in double quotes.",
+ "הקוד עצמו תקין בפייתון. הבעיה בתוכן המחרוזת, ומתגלה בזמן ריצה.",
+ "לא ניגשים למפתח.",
+ "loads מקבל מחרוזת, אז הטיפוס תקין."])
+
+qe("""
+import json
+text = json.dumps({"tags": {"python", "json"}})
+""", ["TypeError", "ValueError", "JSONDecodeError", "AttributeError"], 0,
+"ל-JSON אין טיפוס set, ולכן `json.dumps` לא יודע איך לכתוב אותו: Object of type set is not JSON serializable. אפשר להמיר קודם ל-`list`.",
+["נכון.",
+ "הבעיה היא סוג האובייקט, לא ערך מסוים.",
+ "JSONDecodeError הוא בקריאה (loads). כאן כותבים (dumps).",
+ "dumps קיים ב-json."])
+
+qe("""
+a, b = [1, 2, 3]
+""", ["ValueError", "TypeError", "IndexError", "SyntaxError"], 0,
+"בפירוק, מספר המשתנים צריך להתאים בדיוק למספר האיברים: too many values to unpack.",
+["נכון.",
+ "רשימה ניתנת לפירוק, אז הטיפוס תקין.",
+ "פייתון לא ניגש לאינדקס חסר, הוא סופר מראש.",
+ "התחביר תקין."])
+
+qe("""
+def greet(name, greeting):
+    print(greeting, name)
+
+greet("Dana")
+""", ["TypeError", "ValueError", "NameError", "AttributeError"], 0,
+"קריאה לפונקציה עם פחות ארגומנטים ממה שהיא דורשת זורקת TypeError: missing 1 required positional argument.",
+["נכון.",
+ "הערך \"Dana\" תקין. חסר ארגומנט.",
+ "greeting הוא פרמטר, לא שם חסר. השגיאה נזרקת עוד לפני שהגוף רץ.",
+ "לא ניגשים לתכונה."])
+
+qe("""
+items = iter([])
+first = next(items)
+""", ["StopIteration", "IndexError", "ValueError", "RuntimeError"], 0,
+"`next` על איטרטור שאין בו ערכים זורק StopIteration. זה המנגנון שבעזרתו לולאת for יודעת להפסיק. אפשר `next(items, None)`.",
+["נכון.",
+ "איטרטור לא עובד עם אינדקסים.",
+ "ValueError לא קשור לאיטרטורים.",
+ "StopIteration הופכת ל-RuntimeError רק כשהיא דולפת מתוך generator."])
+
+qe("""
+import pandass
+""", ["ModuleNotFoundError", "ImportError", "NameError", "FileNotFoundError"], 0,
+"מודול שלא קיים (כאן בגלל שגיאת כתיב) זורק ModuleNotFoundError, תת-מחלקה של ImportError.",
+["נכון: No module named 'pandass'.",
+ "ImportError הוא ההורה. השם המדויק הוא ModuleNotFoundError. ImportError לבד מתקבל כשהמודול קיים אבל השם שמייבאים ממנו לא קיים.",
+ "import מחפש מודול, לא משתנה.",
+ "פייתון לא מדווח על קובץ חסר, אלא על מודול חסר."])
+
+qe("""
+big = 2.0 ** 10000
+""", ["OverflowError", "ValueError", "MemoryError", "ZeroDivisionError"], 0,
+"float מוגבל בגודלו, ו-2.0 בחזקת 10000 גדול מדי: OverflowError. מעניין: `2 ** 10000` עם int עובד מצוין, כי ל-int בפייתון אין גבול.",
+["נכון: Numerical result out of range.",
+ "הערכים תקינים. התוצאה פשוט גדולה מדי ל-float.",
+ "המספר לא תופס זיכרון רב, הוא חורג מהטווח של float.",
+ "אין כאן חלוקה."], "טריק")
+
+qe("""
+def countdown(n):
+    return countdown(n - 1)
+
+countdown(5)
+""", ["RecursionError", "MemoryError", "OverflowError", "RuntimeError"], 0,
+"לפונקציה אין תנאי עצירה, אז היא קוראת לעצמה בלי סוף. אחרי כ-1000 קריאות פייתון עוצר עם RecursionError (תת-מחלקה של RuntimeError).",
+["נכון: maximum recursion depth exceeded.",
+ "פייתון עוצר הרבה לפני שנגמר הזיכרון.",
+ "המספרים לא גדולים מדי.",
+ "RuntimeError הוא ההורה. השם המדויק הוא RecursionError."])
+
+qe("""
+class FlightFullError(Exception):
+    pass
+
+def reserve_seat(available):
+    if available <= 0:
+        raise FlightFullError("No seats available")
+    return available - 1
+
+reserve_seat(0)
+""", ["FlightFullError", "Exception", "ValueError", "RuntimeError"], 0,
+"`raise` זורק בדיוק את החריגה שיצרנו. FlightFullError יורשת מ-Exception, אז `except Exception` היה תופס אותה, אבל השם שלה הוא FlightFullError.",
+["נכון: FlightFullError: No seats available.",
+ "Exception היא ההורה. type של החריגה הוא FlightFullError.",
+ "לא נזרקה ValueError.",
+ "החריגה לא יורשת מ-RuntimeError."], "מהקוד שלך")
+
+qe("""
+def divide_text(left, right):
+    try:
+        return int(left) / int(right)
+    except ZeroDivisionError:
+        return "cannot divide by zero"
+    except ValueError:
+        return "invalid input"
+
+print(divide_text(None, "2"))
+""", ["TypeError", "ValueError", "ZeroDivisionError", "AttributeError"], 0,
+"`int(None)` זורק TypeError, והפונקציה תופסת רק ZeroDivisionError ו-ValueError. חריגה שלא נתפסה ממשיכה החוצה מהפונקציה.",
+["נכון: TypeError לא נתפס ב-except.",
+ "רק `int(\"abc\")` היה זורק ValueError (ונתפס). None הוא טיפוס לא נתמך.",
+ "לא מגיעים לחלוקה בכלל.",
+ "לא ניגשים לתכונה."], "מהקוד שלך")
+
+qe("""
+def find_email(users, username):
+    try:
+        return users[username]
+    except KeyError:
+        return None
+
+print(find_email(["dana", "yossi"], "dana"))
+""", ["TypeError", "KeyError", "IndexError", "ValueError"], 0,
+"נשלחה רשימה במקום מילון. אינדקס של רשימה חייב להיות מספר, ולכן `users[\"dana\"]` זורק TypeError, שלא נתפס על ידי `except KeyError`.",
+["נכון: list indices must be integers or slices, not str.",
+ "KeyError מתקבל רק ממילון. כאן זו רשימה.",
+ "IndexError הוא אינדקס מספרי מחוץ לטווח. כאן האינדקס בכלל לא מספר.",
+ "אין המרה של ערך."], "מהקוד שלך")
+
+qe("""
+stock = {"apple": 3}
+for item in stock:
+    stock["banana"] = 5
+""", ["RuntimeError", "KeyError", "TypeError", "ValueError"], 0,
+"אסור להוסיף או למחוק מפתחות במילון תוך כדי מעבר עליו: dictionary changed size during iteration.",
+["נכון.",
+ "המפתחות שניגשים אליהם תקינים.",
+ "הטיפוסים תקינים.",
+ "אין המרה."])
+
+qe("""
+x = 5
+
+def show():
+    print(x)
+    x = 10
+
+show()
+""", ["UnboundLocalError", "NameError", "SyntaxError", "TypeError"], 0,
+"בגלל שיש השמה ל-x בתוך הפונקציה, x נחשב מקומי בכל הפונקציה, גם בשורה שלפני ההשמה. הקריאה שלו לפני שקיבל ערך זורקת UnboundLocalError.",
+["נכון: cannot access local variable 'x'.",
+ "UnboundLocalError היא תת-מחלקה של NameError, אבל זה השם המדויק.",
+ "התחביר תקין.",
+ "אין פעולה בין טיפוסים."], "טריק מתקדם")
+
+# ═════════════ ניהול שגיאות: מהקוד שלך ═════════════
+q("exceptions", """
+def parse_count(text):
+    try:
+        return int(text)
+    except ValueError:
+        return None
+
+def find_email(users, username):
+    try:
+        return users[username]
+    except KeyError:
+        return None
+
+def divide_text(left, right):
+    try:
+        return int(left) / int(right)
+    except ZeroDivisionError:
+        return "cannot divide by zero"
+    except ValueError:
+        return "invalid input"
+
+users = {"dana": "dana@mail.com"}
+print(parse_count("12"), parse_count("12a"))
+print(find_email(users, "dana"), find_email(users, "yossi"))
+print(divide_text("10", "4"), divide_text("10", "0"), divide_text("ten", "2"))
+""", ["12 None\ndana@mail.com None\n2.5 cannot divide by zero invalid input",
+      "12 None\ndana@mail.com " + E("KeyError"),
+      "12 None\ndana@mail.com None\n2 cannot divide by zero invalid input",
+      "12 12a\ndana@mail.com None\n2.5 cannot divide by zero invalid input"], 0,
+"כל פונקציה תופסת את החריגה שמתאימה לה ומחזירה ערך במקום. \"12a\" זורק ValueError ← None. \"yossi\" לא במילון: KeyError ← None. 10/4 הוא 2.5. חלוקה ב-0 נתפסת, ו-\"ten\" זורק ValueError ב-int.",
+["נכון.",
+ "find_email תופס את ה-KeyError ומחזיר None.",
+ "`/` מחזיר 2.5, לא 2.",
+ "parse_count לא מחזיר את הטקסט המקורי, הוא מחזיר None בשגיאה."], "מהקוד שלך")
+
+q("exceptions", """
+def optional_int(value):
+    try:
+        return int(value)
+    except ValueError:
+        return None
+
+print(optional_int("7"))
+print(optional_int("seven"))
+print(optional_int(None))
+""", ["7\nNone\nNone", "7\nNone\n" + E("TypeError"), "7\n" + E("ValueError"), "7\nNone\n0"], 1,
+"שתי השורות הראשונות עובדות. אבל `int(None)` זורק TypeError ולא ValueError, וה-except תופס רק ValueError. כדי לטפל בשניהם: `except (ValueError, TypeError):`.",
+["None לא נתפס כי החריגה מסוג אחר.",
+ "נכון: באג אמיתי בפונקציה.",
+ "\"seven\" נתפס ומחזיר None.",
+ "int לא ממיר None ל-0."], "מהקוד שלך")
+
+q("exceptions", """
+class FlightFullError(Exception):
+    pass
+
+def reserve_seat(available):
+    if available <= 0:
+        raise FlightFullError("No seats available")
+    return available - 1
+
+seats = 2
+for passenger in ["Dana", "Yossi", "Gil"]:
+    try:
+        seats = reserve_seat(seats)
+        print(passenger, "OK", seats)
+    except FlightFullError as e:
+        print(passenger, "->", e)
+""", ["Dana OK 1\nYossi OK 0\nGil -> No seats available",
+      "Dana OK 1\nYossi OK 0\n" + E("FlightFullError"),
+      "Dana OK 2\nYossi OK 1\nGil OK 0",
+      "Dana OK 1\nYossi -> No seats available\nGil -> No seats available"], 0,
+"בכל סיבוב מספר המושבים יורד ב-1: 2 ← 1 ← 0. ב-Gil יש 0 מושבים, אז נזרקת FlightFullError. ה-try בתוך הלולאה תופס אותה, ו-`print(e)` מציג את ההודעה.",
+["נכון.",
+ "החריגה נתפסת בתוך הלולאה.",
+ "reserve_seat מחזיר את המספר אחרי ההפחתה.",
+ "ל-Yossi עוד נשאר מושב אחד."], "מהקוד שלך")
+
+q("exceptions", """
+def read_text(path):
+    try:
+        with open(path) as file:
+            return file.read()
+    except FileNotFoundError:
+        return None
+
+with open("hello.txt", "w") as f:
+    f.write("hi")
+
+print(read_text("hello.txt"), read_text("missing.txt"))
+""", ["hi None", E("FileNotFoundError"), "hi", "None None"], 0,
+"הקובץ hello.txt נוצר קודם, אז הקריאה מחזירה \"hi\". missing.txt לא קיים, open זורק FileNotFoundError, והפונקציה מחזירה None.",
+["נכון.",
+ "החריגה נתפסת בתוך read_text.",
+ "print מדפיס את שני הערכים, כולל None.",
+ "hello.txt קיים ומכיל hi."], "מהקוד שלך")
+
+# ═════════════ קבצים ═════════════
+q("files", r"""
+countOfNames = 0
+countOfLines = 0
+
+with open("names.txt", "w", encoding="utf-8") as file:
+    file.write("Rayan\n\n")
+    file.write("Yosef\n\n")
+    file.write("Ashraf\n\n")
+
+with open("names.txt", "r", encoding="utf-8") as file:
+    for line in file:
+        countOfLines += 1
+        if line.strip():
+            countOfNames += 1
+
+print("Total lines:", countOfLines, "\nLines with names:", countOfNames)
+""", ["Total lines: 3\nLines with names: 3", "Total lines: 6\nLines with names: 3",
+      "Total lines: 7\nLines with names: 3", "Total lines: 6\nLines with names: 6"], 1,
+"כל write כותב שם ואחריו שני `\\n`: שורת השם ושורה ריקה. 3 פעמים ← 6 שורות. השורות הריקות הן `\"\\n\"`, ו-`strip()` הופך אותן למחרוזת ריקה (שקר), אז רק 3 נספרות כשמות. ה-`\\n` בתוך print יורד שורה באמצע.",
+["כל write כותב 2 שורות, לא אחת.",
+ "נכון.",
+ "אין שורה נוספת אחרי ה-`\\n` האחרון. הוא רק סוגר את השורה השישית.",
+ "השורות הריקות לא עוברות את `if line.strip()`."], "מהקוד שלך")
+
+q("files", r"""
+with open("names.txt", "w", encoding="utf-8") as file:
+    file.write("Dana\n")
+    file.write("\n")
+    file.write("Yossi\n")
+    file.write("   \n")
+    file.write("Gil\n")
+    file.write("\t\n")
+    file.write("Noa\n")
+
+total_lines = 0
+name_lines = 0
+with open("names.txt", encoding="utf-8") as file:
+    for line in file:
+        total_lines += 1
+        if line.strip():
+            name_lines += 1
+
+print(total_lines, name_lines)
+""", ["7 4", "7 7", "7 6", "4 4"], 0,
+"7 שורות נכתבו. `strip()` מסיר רווחים, טאבים ו-`\\n` משני הצדדים, אז גם `\"   \\n\"` וגם `\"\\t\\n\"` הופכות למחרוזת ריקה. נשארות 4 שורות עם שמות.",
+["נכון.",
+ "בלי strip, כל השורות היו נחשבות אמת, כי אפילו `\"\\n\"` היא מחרוזת לא ריקה. כאן יש strip.",
+ "strip מסיר גם טאבים, לא רק רווחים.",
+ "total_lines סופר את כל השורות, גם הריקות."], "מהקוד שלך")
+
+q("files", r"""
+with open("log.txt", "w") as f:
+    f.write("first\n")
+
+with open("log.txt", "w") as f:
+    f.write("second\n")
+
+with open("log.txt") as f:
+    print(f.read())
+""", ["first\nsecond", "second", "first", E("FileExistsError")], 1,
+"מצב \"w\" מוחק את כל התוכן הקיים בקובץ ברגע הפתיחה, עוד לפני שכותבים. כדי להוסיף לסוף משתמשים ב-\"a\".",
+["זה היה נכון עם \"a\" בפתיחה השנייה.",
+ "נכון: \"w\" דורס.",
+ "הפתיחה השנייה דרסה את first.",
+ "\"w\" לא נכשל על קובץ קיים. רק \"x\" נכשל."], "טריק")
+
+q("files", r"""
+with open("log.txt", "w") as f:
+    f.write("1")
+with open("log.txt", "a") as f:
+    f.write("2")
+with open("log.txt", "a") as f:
+    f.write("3")
+
+with open("log.txt") as f:
+    print(f.read())
+""", ["123", "3", "1\n2\n3", "13"], 0,
+"\"a\" (append) מוסיף לסוף הקובץ בלי למחוק. write לא מוסיף ירידת שורה לבד, אז הכול נכתב ברצף.",
+["נכון.",
+ "\"a\" לא דורס, הוא מוסיף.",
+ "write לא מוסיף `\\n` אוטומטית (בניגוד ל-print).",
+ "שתי פעולות ה-append נשמרו."])
+
+q("files", r"""
+with open("t.txt", "w") as f:
+    f.write("x\ny\n")
+
+with open("t.txt") as f:
+    print(f.readlines())
+    print(repr(f.read()))
+""", [r"['x\n', 'y\n']" + "\n''", "['x', 'y']\n''", r"['x\n', 'y\n']" + "\n" + r"'x\ny\n'", "x\ny\n''"], 0,
+"`readlines` מחזיר רשימה של שורות, וכל שורה שומרת את ה-`\\n` שלה. אחרי הקריאה, הסמן נמצא בסוף הקובץ, אז `read()` מחזיר מחרוזת ריקה. כדי לקרוא שוב: `f.seek(0)`.",
+["נכון.",
+ "readlines לא מסיר את ה-`\\n`. בשביל זה יש `f.read().splitlines()`.",
+ "קריאה שנייה מתחילה מאיפה שהראשונה נגמרה, שזה סוף הקובץ.",
+ "readlines מחזיר רשימה, לא טקסט."], "טריק")
+
+q("files", r"""
+with open("a.txt", "w") as f:
+    f.write("a\nb\n")
+
+with open("a.txt") as f:
+    for line in f:
+        print(line)
+""", ["a\nb", "a\n\nb", "ab", "a b"], 1,
+"כל שורה בקובץ כבר מסתיימת ב-`\\n`, ו-print מוסיף עוד `\\n` משלו. התוצאה: שורה ריקה בין כל שורה. התיקון: `print(line, end=\"\")` או `print(line.rstrip())`.",
+["זה מה שהיה מתקבל עם `line.rstrip()`.",
+ "נכון: ירידת שורה כפולה.",
+ "גם print וגם הקובץ מוסיפים ירידות שורה.",
+ "אין רווח בין השורות, יש שורה ריקה."], "טריק קלאסי")
+
+q("files", r"""
+with open("w.txt", "w", encoding="utf-8") as f:
+    n = f.write("שלום\n")
+print(n)
+""", ["5", "4", "9", "None"], 0,
+"בקובץ טקסט `write` מחזיר את מספר התווים שנכתבו, לא מספר הבתים. 4 אותיות ועוד `\\n` = 5. (ב-UTF-8 כל אות עברית תופסת 2 בתים, אז בדיסק יש 9 בתים.)",
+["נכון.",
+ "גם `\\n` הוא תו.",
+ "write סופר תווים, לא בתים.",
+ "בניגוד ל-append ו-sort, write כן מחזיר ערך."], "טריק")
+
+q("files", r"""
+import json
+
+data = {"nums": (1, 2), 1: "x", "ok": True}
+with open("d.json", "w") as f:
+    json.dump(data, f)
+
+with open("d.json") as f:
+    back = json.load(f)
+
+print(back, back == data)
+""", ["{'nums': (1, 2), 1: 'x', 'ok': True} True",
+      "{'nums': [1, 2], '1': 'x', 'ok': True} False",
+      "{'nums': [1, 2], 1: 'x', 'ok': True} False",
+      '{"nums": [1, 2], "1": "x", "ok": true} False'], 1,
+"ב-JSON אין tuple, אז הוא נשמר כרשימה. ומפתחות ב-JSON הם תמיד מחרוזות, אז המפתח 1 חוזר כ-\"1\". לכן הנתונים שחוזרים שונים מהמקוריים.",
+["JSON לא שומר tuple ולא מפתחות מספריים.",
+ "נכון.",
+ "גם המפתח 1 הפך למחרוזת \"1\".",
+ "json.load מחזיר מילון של פייתון, ו-print מציג אותו בפורמט של פייתון (True ולא true)."], "טריק מתקדם")
+
+q("files", r"""
+import json
+
+data = {"name": "דנה", "ok": True, "x": None}
+print(json.dumps(data))
+print(json.dumps(data, ensure_ascii=False))
+""", [r'{"name": "\u05d3\u05e0\u05d4", "ok": true, "x": null}' + "\n" + '{"name": "דנה", "ok": true, "x": null}',
+      '{"name": "דנה", "ok": true, "x": null}\n{"name": "דנה", "ok": true, "x": null}',
+      "{'name': 'דנה', 'ok': True, 'x': None}\n{'name': 'דנה', 'ok': True, 'x': None}",
+      r'{"name": "\u05d3\u05e0\u05d4", "ok": True, "x": None}' + "\n" + '{"name": "דנה", "ok": True, "x": None}'], 0,
+"`json.dumps` הופך מילון למחרוזת JSON: גרשיים כפולים, `true` ו-`null` באותיות קטנות. כברירת מחדל תווים שאינם באנגלית נכתבים כקודים (`\\u05d3`). עם `ensure_ascii=False` העברית נשמרת כמו שהיא. לכן בקבצים בעברית כדאי גם `encoding=\"utf-8\"`.",
+["נכון.",
+ "בלי `ensure_ascii=False`, העברית מוצגת כקודי Unicode.",
+ "זו התצוגה של פייתון, לא של JSON.",
+ "ב-JSON כותבים `true` ו-`null`, לא True ו-None."], "טריק")
+
+q("files", r"""
+import json
+
+with open("person.json", "w", encoding="utf-8") as file:
+    json.dump({"name": "John", "age": 30}, file)
+
+with open("person.json", encoding="utf-8") as file:
+    data = json.load(file)
+
+data["lastname"] = "Doe"
+
+with open("person.json", "w", encoding="utf-8") as file:
+    json.dump(data, file, indent=4)
+
+with open("person.json", encoding="utf-8") as file:
+    again = json.load(file)
+
+print(again["name"], again["lastname"], again["age"] + 1)
+""", ["John Doe 31", "John Doe 301", E("KeyError"), "John None 31"], 0,
+"השינוי ב-data נעשה בזיכרון, ונשמר לקובץ רק ב-`json.dump` השני. הקריאה האחרונה רואה גם את lastname. המספר 30 נשמר ב-JSON כמספר, אז אפשר לחבר לו 1.",
+["נכון.",
+ "age נשאר int גם אחרי JSON, הוא לא הפך למחרוזת.",
+ "lastname נשמר בקובץ לפני הקריאה האחרונה.",
+ "המפתח קיים עם הערך Doe."], "מהקוד שלך")
+
+q("files", r"""
+from pathlib import Path
+
+p = Path("data") / "report.final.txt"
+print(p.name, p.stem, p.suffix)
+""", ["report.final.txt report .final.txt", "report.final.txt report.final .txt",
+      "data/report.final.txt report.final txt", E("TypeError")], 1,
+"`/` בין Path למחרוזת מחבר נתיבים (העמסת אופרטור). `name` הוא שם הקובץ המלא, `suffix` הוא רק הסיומת האחרונה (כולל הנקודה), ו-`stem` הוא השם בלי הסיומת האחרונה.",
+["stem ו-suffix מתחלקים לפי הנקודה האחרונה בלבד.",
+ "נכון.",
+ "name לא כולל את התיקייה, ו-suffix כולל את הנקודה.",
+ "Path מגדיר את האופרטור `/` בדיוק בשביל זה."])
+
+q("files", r"""
+from pathlib import Path
+
+p = Path("new.txt")
+print(p.exists(), end=" ")
+p.write_text("hi")
+print(p.exists(), p.read_text(), p.stat().st_size)
+""", ["False True hi 2", "True True hi 2", "False False hi 2", "False True hi 3"], 0,
+"לפני הכתיבה הקובץ לא קיים. `write_text` יוצר אותו וכותב בלי להוסיף ירידת שורה, אז הגודל הוא 2 בתים.",
+["הקובץ לא קיים לפני write_text.",
+ "נכון.",
+ "write_text יוצר את הקובץ.",
+ "write_text לא מוסיף `\\n` בסוף."])
+
+q("files", r"""
+with open("c.txt", "w") as f:
+    f.write("x")
+
+print(f.closed, f.name)
+""", ["False c.txt", "True c.txt", E("NameError"), "True None"], 1,
+"`with` סוגר את הקובץ אוטומטית כשהבלוק נגמר, גם אם הייתה חריגה. המשתנה f עדיין קיים ושומר את השם, אבל `closed` הוא True.",
+["with סוגר את הקובץ ביציאה מהבלוק.",
+ "נכון.",
+ "משתנה של with לא נמחק אחרי הבלוק.",
+ "השם נשמר גם אחרי הסגירה."])
+
+q("files", r"""
+lines = ["a", "b", "c"]
+with open("l.txt", "w") as f:
+    f.writelines(lines)
+
+with open("l.txt") as f:
+    print(len(f.readlines()), f.name)
+
+with open("l.txt") as f:
+    print(f.read())
+""", ["3 l.txt\na\nb\nc", "1 l.txt\nabc", "3 l.txt\nabc", "1 l.txt\na b c"], 1,
+"למרות השם, `writelines` לא מוסיף ירידות שורה. הוא פשוט כותב כל מחרוזת ברצף. התוצאה: שורה אחת \"abc\". הנכון: `f.write(\"\\n\".join(lines))`.",
+["writelines לא מוסיף `\\n`.",
+ "נכון: מלכודת של שם מטעה.",
+ "אם הטקסט הוא abc ברצף, יש רק שורה אחת.",
+ "גם רווחים לא נוספים."], "טריק")
+
+q("files", r"""
+with open("r.txt", "w") as f:
+    f.write("Python")
+
+with open("r.txt") as f:
+    a = f.read(2)
+    b = f.read(3)
+    c = f.read()
+
+print(a, b, c)
+""", ["Py Pyt Python", "Py tho n", "Py th on", "Py tho Python"], 1,
+"`read(n)` קורא n תווים ומקדם את הסמן. כל קריאה ממשיכה מאיפה שהקודמת נגמרה. `read()` בלי מספר קורא את כל מה שנשאר.",
+["הקריאה השנייה לא חוזרת להתחלה.",
+ "נכון.",
+ "read(3) קורא 3 תווים: t, h, o.",
+ "read() קורא רק את מה שנשאר."])
+
+q("files", r"""
+with open("s.txt", "w+") as f:
+    f.write("abc")
+    print(repr(f.read()), end=" ")
+    f.seek(0)
+    print(f.read())
+""", ["'abc' abc", "'' abc", "'' ''", E("UnsupportedOperation")], 1,
+"\"w+\" מאפשר גם כתיבה וגם קריאה. אחרי הכתיבה הסמן בסוף הקובץ, אז הקריאה הראשונה ריקה. `seek(0)` מחזיר את הסמן להתחלה.",
+["אחרי write הסמן בסוף, לא בהתחלה.",
+ "נכון.",
+ "seek(0) מחזיר להתחלה, אז הקריאה השנייה מוצאת abc.",
+ "\"w+\" כן תומך בקריאה, בניגוד ל-\"w\"."], "טריק")
+
+q("files", r"""
+with open("w.txt", "w") as f:
+    f.write("one two\n\nthree  four\n")
+
+with open("w.txt") as f:
+    text = f.read()
+
+print(len(text.split()), len(text.splitlines()), text.count("\n"))
+""", ["4 3 3", "4 2 3", "5 3 3", "4 3 2"], 0,
+"`split()` בלי ארגומנט מפצל לפי כל רווח לבן (רווחים, `\\n`) ומתעלם מרצפים: 4 מילים. `splitlines()` מחזיר 3 שורות, כולל השורה הריקה. יש 3 תווי `\\n`.",
+["נכון.",
+ "splitlines כולל גם את השורה הריקה באמצע.",
+ "שני רווחים צמודים לא יוצרים מילה ריקה ב-`split()`.",
+ "יש 3 ירידות שורה: אחרי two, השורה הריקה, ואחרי four."])
+
+q("files", r"""
+import os
+
+with open("temp.txt", "w") as f:
+    f.write("data")
+
+print(os.path.exists("temp.txt"), end=" ")
+os.remove("temp.txt")
+print(os.path.exists("temp.txt"))
+""", ["True False", "True True", "False False", E("PermissionError")], 0,
+"`os.path.exists` בודק אם הקובץ קיים. `os.remove` מוחק אותו לצמיתות (לא לסל המיחזור).",
+["נכון.",
+ "os.remove מחק את הקובץ.",
+ "הקובץ נוצר לפני הבדיקה הראשונה.",
+ "הקובץ סגור (with הסתיים), אז מותר למחוק אותו."])
+
 # שיוך שאלות קיימות לנושאים החדשים
 MOVE = {
     "for i in range(3):\n    if i == 5:": "loops",
@@ -2382,11 +3123,16 @@ for item in Q:
 def run(code):
     buf = io.StringIO()
     err = None
-    try:
-        with contextlib.redirect_stdout(buf):
-            exec(compile(code, "<q>", "exec"), {"__name__": "__main__"})
-    except BaseException as e:
-        err = type(e).__name__
+    home = os.getcwd()
+    with tempfile.TemporaryDirectory() as tmp:   # each question gets an empty folder
+        os.chdir(tmp)
+        try:
+            with contextlib.redirect_stdout(buf):
+                exec(compile(code, "<q>", "exec"), {"__name__": "__main__"})
+        except BaseException as e:
+            err = type(e).__name__
+        finally:
+            os.chdir(home)
     out = buf.getvalue().rstrip()
     out = "\n".join(l.rstrip() for l in out.split("\n")) if out else ""
     out = re.sub(r"0x[0-9a-fA-F]+", "0x…", out)

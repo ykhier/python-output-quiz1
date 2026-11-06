@@ -203,7 +203,7 @@ Q.forEach((q,i)=>q.id=i);
 const CATS = [
   ['all','הכול'],['vars','משתנים'],['cond','תנאים'],['loops','לולאות'],
   ['lists','רשימות'],['tuples','tuple ו-set'],['dicts','מילונים'],['strings','מחרוזות'],
-  ['functions','פונקציות'],['exceptions','ניהול שגיאות'],['classes','מחלקות'],['poly','פולימורפיזם'],
+  ['functions','פונקציות'],['exceptions','ניהול שגיאות'],['raise','איזו חריגה?'],['files','קבצים'],['classes','מחלקות'],['poly','פולימורפיזם'],
   ['iter','גנרטורים'],['tricks','טריקים'],['bugs','באגים ושגיאות'],['mine','מהקוד שלך']
 ];
 const CATNAME = Object.fromEntries(CATS);
@@ -300,12 +300,12 @@ function renderCard(){
   const tags=[`<span class="tag">${CATNAME[q.cat]}</span>`];
   if(q.title) tags.push(`<span class="tag hot">${q.title}</span>`);
   let h=`<div class="qhead"><div class="qnum">${st.pos+1} <small>מתוך ${list.length}</small></div><div class="tags">${tags.join('')}</div></div>
-    <p class="prompt">מה ידפיס הקוד הבא?</p>${codeBlock(q.code)}
+    <p class="prompt">${q.prompt||'מה ידפיס הקוד הבא?'}</p>${codeBlock(q.code)}
     <div class="opts" role="group" aria-label="אפשרויות">`;
   perm.forEach((oi,pi)=>{
     let cls='';
     if(answered){ if(oi===q.ans) cls='right'; else if(oi===chosen) cls='wrong'; else cls='dim'; }
-    h+=`<button class="opt ${cls}" data-oi="${oi}" ${answered?'disabled':''}><span class="ltr">${LETTERS[pi]}</span><span class="out">${outHtml(q.opts[oi])}</span></button>`;
+    h+=`<button class="opt ${cls}" data-oi="${oi}" ${answered?'disabled':''}><span class="ltr">${LETTERS[pi]}</span><span class="out">${q.cat==='raise'?esc(q.opts[oi].slice(4)):outHtml(q.opts[oi])}</span></button>`;
   });
   h+='</div>';
   if(answered){
