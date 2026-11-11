@@ -229,7 +229,9 @@ header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-be
 <script>
 (function(){
 const Q = JSON.parse(document.getElementById('data').textContent);
-Q.forEach((q,i)=>q.id=i);
+const H=t=>{let h=5381;for(let i=0;i<t.length;i++)h=(Math.imul(h,33)^t.charCodeAt(i))>>>0;return h.toString(36)};
+Q.forEach((q,i)=>{q.id=i;q.hid=H(q.code+'\u0001'+q.opts.join('\u0001'))});
+const BYH=new Map(Q.map(q=>[q.hid,q.id]));
 const CATS = [
   ['all','הכול'],['vars','משתנים'],['cond','תנאים'],['loops','לולאות'],
   ['lists','רשימות'],['tuples','tuple ו-set'],['dicts','מילונים'],['strings','מחרוזות'],
@@ -241,14 +243,38 @@ const LETTERS = ['א','ב','ג','ד'];
 const isBug = q => q.out.includes('ERR:') || /באג/.test(q.title);
 const inCat = (q,c) => c==='all' || q.cat===c || (c==='bugs' && isBug(q)) || (c==='mine' && q.title==='מהקוד שלך');
 
-const KEY='mah-hapelet-v1';
+const KEY='mah-hapelet-v2', OLD_KEY='mah-hapelet-v1', OLD_STABLE=264;
 let st = {answers:{}, perm:{}, order:null, cat:'all', pos:0, curId:null, savedAt:null, tab:'practice'};
 let restored=false;
 let storageOk=true;
-try{ const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s&&s.answers){ st=Object.assign(st,s); restored=Object.keys(s.answers).length>0; } }catch(e){storageOk=false}
+try{
+  const raw=JSON.parse(localStorage.getItem(KEY)||'null');
+  if(raw&&raw.answers){
+    // progress saved by question content (stable across edits)
+    const fromH=o=>{const r={};for(const k in (o||{})){const id=BYH.get(k);if(id!==undefined)r[id]=o[k]}return r};
+    st=Object.assign(st,raw,{answers:fromH(raw.answers),perm:fromH(raw.perm),
+      order:(raw.order||[]).map(h=>BYH.get(h)).filter(x=>x!==undefined),
+      curId:BYH.has(raw.curId)?BYH.get(raw.curId):null});
+  }else{
+    // one-time move from the old number-based save; only the first 264 questions are unchanged
+    const old=JSON.parse(localStorage.getItem(OLD_KEY)||'null');
+    if(old&&old.answers){
+      const keep=o=>{const r={};for(const k in (o||{}))if(+k<OLD_STABLE)r[k]=o[k];return r};
+      st=Object.assign(st,{answers:keep(old.answers),perm:keep(old.perm),cat:old.cat||'all',tab:old.tab||'practice',
+        order:(old.order||[]).filter(i=>i<OLD_STABLE),curId:(old.curId!=null&&old.curId<OLD_STABLE)?old.curId:null});
+    }
+  }
+  restored=Object.keys(st.answers).length>0;
+}catch(e){storageOk=false}
 const save=()=>{
   const q=visible()[st.pos]; if(q) st.curId=q.id;
-  try{ st.savedAt=Date.now(); localStorage.setItem(KEY,JSON.stringify(st)); storageOk=true; }catch(e){ storageOk=false; }
+  try{
+    st.savedAt=Date.now();
+    const toH=o=>{const r={};for(const k in o){if(Q[k])r[Q[k].hid]=o[k]}return r};
+    localStorage.setItem(KEY,JSON.stringify(Object.assign({},st,{answers:toH(st.answers),perm:toH(st.perm),
+      order:st.order.filter(i=>Q[i]).map(i=>Q[i].hid),curId:(st.curId!=null&&Q[st.curId])?Q[st.curId].hid:null})));
+    storageOk=true;
+  }catch(e){ storageOk=false; }
   renderSaved();
 };
 
