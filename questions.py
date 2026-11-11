@@ -3538,6 +3538,1181 @@ print(merged["name"].tolist(), merged.shape)
  "id משותף ולא משוכפל, אז יש 3 עמודות.",
  "זה מה שמתקבל עם `how=\"outer\"`."])
 
+# ═════════════════════ סבב 3: שאלות נוספות מכל הנושאים ═════════════════════
+
+# ───── מילונים ─────
+q("dicts", """
+d = {}
+d.setdefault("a", []).append(1)
+d.setdefault("a", []).append(2)
+print(d, d.setdefault("b", 0))
+""", ["{'a': [1, 2]} 0", "{'a': [1, 2], 'b': 0} 0", "{'a': [2]} 0", "{'a': [1, 2], 'b': 0} None"], 1,
+"`setdefault` מחזיר את הערך הקיים, ואם המפתח לא קיים הוא מכניס את ערך ברירת המחדל ומחזיר אותו. בפעם השנייה \"a\" כבר קיים, אז ה-append הולך לאותה רשימה. ו-print מחשב את כל הארגומנטים לפני שהוא מדפיס, כך שגם \"b\" כבר נכנס למילון.",
+["print מחשב את כל הארגומנטים לפני ההדפסה, אז d כבר כולל את b.",
+ "נכון.",
+ "בפעם השנייה setdefault מחזיר את הרשימה הקיימת ולא יוצר חדשה.",
+ "setdefault מחזיר את הערך שהוכנס, 0."], "טריק")
+
+q("dicts", """
+from collections import defaultdict
+
+d = defaultdict(int)
+for w in ["a", "b", "a"]:
+    d[w] += 1
+print(d["a"], d["z"], len(d))
+""", ["2 0 2", "2 0 3", E("KeyError"), "2 None 2"], 1,
+"ב-`defaultdict(int)` גישה למפתח חסר יוצרת אותו עם 0, בלי KeyError. אבל זה קורה גם כשרק קוראים: `d[\"z\"]` הכניס את z למילון, ולכן יש 3 מפתחות.",
+["קריאה של `d[\"z\"]` הוסיפה מפתח חדש.",
+ "נכון.",
+ "defaultdict לא זורק KeyError, הוא יוצר ערך.",
+ "int() מחזיר 0, לא None."], "טריק")
+
+q("dicts", """
+a = {"x": 1, "y": 2}
+b = {"y": 20, "z": 30}
+print(a | b, {**b, **a})
+""", ["{'x': 1, 'y': 20, 'z': 30} {'y': 2, 'z': 30, 'x': 1}", "{'x': 1, 'y': 2, 'z': 30} {'y': 20, 'z': 30, 'x': 1}",
+      "{'x': 1, 'y': 20, 'z': 30} {'x': 1, 'y': 2, 'z': 30}", E("TypeError")], 0,
+"גם `|` (מפייתון 3.9) וגם `{**a, **b}` ממזגים מילונים. כשיש מפתח כפול, הערך מהמילון הימני מנצח. סדר המפתחות נקבע לפי ההופעה הראשונה של כל מפתח.",
+["נכון.",
+ "הימני מנצח: ב-`a | b`, y הוא 20.",
+ "הסדר נקבע לפי ההופעה הראשונה. ב-`{**b, **a}` המפתח y מגיע ראשון.",
+ "`|` בין מילונים חוקי מפייתון 3.9."])
+
+q("dicts", """
+scores = {"dana": 90, "gil": 75, "noa": 82}
+top = sorted(scores, key=scores.get, reverse=True)
+print(top[0], max(scores), min(scores.values()))
+""", ["dana dana 75", "dana noa 75", "dana 90 75", "90 noa gil"], 1,
+"`sorted(scores, key=scores.get)` ממיין את המפתחות לפי הערכים. אבל `max(scores)` בלי key עובד על המפתחות עצמם, כלומר לפי אלפבית: noa. כדי לקבל את בעל הציון הגבוה: `max(scores, key=scores.get)`.",
+["`max(scores)` משווה את שמות המפתחות, לא את הציונים.",
+ "נכון: מלכודת נפוצה.",
+ "max על מילון מחזיר מפתח, לא ערך.",
+ "sorted על מילון מחזיר מפתחות, לא ערכים."], "טריק")
+
+q("dicts", """
+d = {"a": 1}
+keys = d.keys()
+d["b"] = 2
+print(list(keys), len(keys))
+""", ["['a'] 1", "['a', 'b'] 2", "['a'] 2", E("RuntimeError")], 1,
+"`keys()` מחזיר תצוגה (view) חיה של המילון, לא עותק. כשהמילון משתנה, גם התצוגה משתקפת. לעותק קבוע: `list(d.keys())`.",
+["keys() לא מעתיק. הוא משקף את המצב הנוכחי.",
+ "נכון.",
+ "list ו-len רואים את אותו מצב.",
+ "השינוי לא קרה תוך כדי מעבר על המילון."], "טריק")
+
+q("dicts", """
+d = {"a": 1, "b": 2, "c": 1}
+inv = {v: k for k, v in d.items()}
+print(inv)
+""", ["{1: 'a', 2: 'b'}", "{1: 'c', 2: 'b'}", "{1: ['a', 'c'], 2: 'b'}", E("KeyError")], 1,
+"היפוך מילון: הערכים הופכים למפתחות. לערך 1 יש שני מפתחות (a ו-c), וההשמה האחרונה דורסת את הקודמת, אז נשאר c. סדר המפתחות נקבע לפי ההופעה הראשונה של 1.",
+["c נכתב אחרי a ודורס אותו.",
+ "נכון.",
+ "comprehension לא אוסף לרשימה, הוא דורס.",
+ "אין גישה למפתח חסר."])
+
+q("dicts", """
+d = {"name": "Dana", "age": 25}
+print("Dana" in d, "name" in d, "Dana" in d.values())
+""", ["True True True", "False True True", "True True False", "False True False"], 1,
+"`in` על מילון בודק רק מפתחות. כדי לבדוק ערך משתמשים ב-`d.values()`.",
+["\"Dana\" הוא ערך, לא מפתח.",
+ "נכון.",
+ "`d.values()` כולל את \"Dana\".",
+ "\"Dana\" נמצא בין הערכים."])
+
+# ───── מחרוזות ─────
+q("strings", """
+s = "banana"
+t = s.replace("a", "o", 2)
+print(s, t, s.count("an"))
+""", ["bonona bonona 2", "banana bonona 2", "banana bonono 2", "banana bonona 3"], 1,
+"`replace` מחזיר מחרוזת חדשה ולא משנה את s. הארגומנט השלישי מגביל את מספר ההחלפות ל-2 הראשונות. \"an\" מופיע פעמיים ב-banana.",
+["s לא משתנה, מחרוזות הן immutable.",
+ "נכון.",
+ "רק 2 החלפות, אז ה-a האחרון נשאר.",
+ "count סופר הופעות שלא חופפות: b-an-an-a, כלומר 2."])
+
+q("strings", """
+print("123".isdigit(), "12.5".isdigit(), "-5".isdigit(), " ".isspace())
+""", ["True True True True", "True False False True", "True False True True", "True False False False"], 1,
+"`isdigit` מחזיר True רק אם כל התווים הם ספרות. נקודה ומינוס אינם ספרות, אז אי אפשר להשתמש בו לבדוק מספרים שליליים או עשרוניים. לזה עדיף try/except עם float.",
+["נקודה ומינוס אינם ספרות.",
+ "נכון.",
+ "המינוס אינו ספרה.",
+ "רווח הוא תו לבן, אז isspace מחזיר True."], "טריק")
+
+q("strings", """
+f = "report.PDF"
+print(f.endswith(".pdf"), f.lower().endswith((".pdf", ".doc")), f.split(".")[-1])
+""", ["True True PDF", "False True PDF", "False False pdf", "False True pdf"], 1,
+"`endswith` רגיש לאותיות גדולות וקטנות, לכן כדאי `lower()` קודם. אפשר להעביר tuple כדי לבדוק כמה סיומות בבת אחת. `split` לא משנה את האותיות.",
+["\".PDF\" לא שווה ל-\".pdf\".",
+ "נכון.",
+ "אחרי lower הבדיקה מצליחה.",
+ "split לא מקטין אותיות."])
+
+q("strings", """
+nums = [1, 2, 3]
+print(", ".join(nums))
+""", ["1, 2, 3", E("TypeError"), "[1, 2, 3]", "1,2,3"], 1,
+"`join` מחבר רק מחרוזות. רשימה של מספרים זורקת TypeError. התיקון: `\", \".join(str(n) for n in nums)` או `map(str, nums)`.",
+["join לא ממיר מספרים לבד.",
+ "נכון: sequence item 0: expected str instance, int found.",
+ "join לא מדפיס את הרשימה עצמה.",
+ "המפריד הוא \", \" עם רווח, וממילא יש שגיאה."], "באג")
+
+q("strings", """
+name = "Dana"
+x = 7
+print(f"{name!r} {x=} {x:>3}|")
+""", ["Dana x=7 7|", "'Dana' x=7   7|", "'Dana' 7 7  |", "Dana {x=}   7|"], 1,
+"ב-f-string: `!r` מציג את ה-repr (עם גרשיים), `{x=}` מדפיס גם את שם המשתנה וגם את הערך (נוח לדיבאג), ו-`:>3` מיישר לימין ברוחב 3.",
+["`!r` מוסיף גרשיים.",
+ "נכון.",
+ "`{x=}` מדפיס גם את השם. `>` מיישר לימין.",
+ "`{x=}` הוא תחביר חוקי מפייתון 3.8."], "טריק")
+
+q("strings", """
+s = "ab"
+print(s * 3, s * 0 == "", "" in s)
+""", ["ababab True True", "ababab True False", "ab3 True False", "ababab False True"], 0,
+"מחרוזת כפול 0 היא מחרוזת ריקה. ומחרוזת ריקה נחשבת \"נמצאת\" בכל מחרוזת, כי היא תת-מחרוזת של כל דבר.",
+["נכון.",
+ "`\"\" in s` תמיד True.",
+ "`*` משכפל, לא משרשר את המספר.",
+ "`s * 0` הוא \"\", אז ההשוואה True."], "טריק")
+
+q("strings", """
+s = "hello WORLD"
+print(s.capitalize(), "|", s.title(), "|", s.swapcase())
+""", ["Hello WORLD | Hello World | HELLO world", "Hello world | Hello World | HELLO world",
+      "Hello world | Hello WORLD | HELLO world", "HELLO WORLD | Hello World | hello world"], 1,
+"`capitalize` מגדיל רק את האות הראשונה ומקטין את כל השאר. `title` מגדיל את הראשונה בכל מילה. `swapcase` הופך גדולות לקטנות ולהפך.",
+["capitalize גם מקטין את שאר האותיות.",
+ "נכון.",
+ "title מקטין את שאר האותיות בכל מילה.",
+ "capitalize לא מגדיל הכול."])
+
+# ───── גנרטורים ─────
+q("iter", """
+gen = (x * x for x in range(4))
+print(sum(gen), sum(gen))
+""", ["14 14", "14 0", "6 0", "14 " + E("StopIteration")], 1,
+"ביטוי generator (סוגריים עגולים) נצרך פעם אחת. sum הראשון עבר על 0 + 1 + 4 + 9. השני מקבל generator ריק, וסכום של כלום הוא 0.",
+["generator לא מתאפס.",
+ "נכון.",
+ "x * x הוא ריבוע, לא x.",
+ "sum על generator ריק מחזיר 0 ולא זורק שגיאה."])
+
+q("iter", """
+def inner():
+    yield 1
+    yield 2
+
+def outer():
+    yield 0
+    yield from inner()
+    yield 3
+
+print(list(outer()))
+""", ["[0, <generator>, 3]", "[0, 1, 2, 3]", "[0, 3]", "[0, [1, 2], 3]"], 1,
+"`yield from` מעביר החוצה את כל הערכים של generator אחר, אחד אחד, כאילו נכתבו ישירות.",
+["yield from לא מחזיר את אובייקט ה-generator, אלא את הערכים שלו.",
+ "נכון.",
+ "הערכים של inner כן עוברים.",
+ "הערכים מגיעים בנפרד, לא כרשימה."])
+
+q("iter", """
+it = iter([1, 2, 3, 4, 5])
+print(3 in it, list(it))
+""", ["True [1, 2, 3, 4, 5]", "True [4, 5]", "True []", "False [4, 5]"], 1,
+"`in` על איטרטור עובר על האיברים עד שהוא מוצא את 3, וכך הוא צורך את 1, 2 ו-3. מה שנשאר באיטרטור: 4 ו-5.",
+["איטרטור לא חוזר להתחלה.",
+ "נכון: טריק מתקדם.",
+ "in עוצר ברגע שהוא מוצא את הערך.",
+ "3 קיים באיטרטור."], "טריק מתקדם")
+
+q("iter", """
+r = range(3)
+print(list(r), list(r))
+it = iter(r)
+print(next(it), next(it), list(it))
+""", ["[0, 1, 2] []\n0 1 [2]", "[0, 1, 2] [0, 1, 2]\n0 1 [2]", "[0, 1, 2] [0, 1, 2]\n0 1 [0, 1, 2]", "[0, 1, 2] [0, 1, 2]\n0 0 [2]"], 1,
+"range אינו איטרטור, הוא רצף שאפשר לעבור עליו כמה פעמים. `iter(r)` יוצר איטרטור, ואותו צורכים פעם אחת.",
+["range לא נצרך כמו generator.",
+ "נכון.",
+ "list(it) מקבל רק את מה שנשאר אחרי שני ה-next.",
+ "כל next מתקדם."])
+
+q("iter", """
+def naturals():
+    n = 1
+    while True:
+        yield n
+        n += 1
+
+for i, n in enumerate(naturals()):
+    if n * n > 20:
+        break
+print(i, n)
+""", ["4 5", "5 5", "4 4", "לולאה אינסופית"], 0,
+"generator אינסופי לא בעיה כל עוד מישהו עוצר אותו. n = 5 הוא הראשון שהריבוע שלו גדול מ-20. enumerate מתחיל מ-0, אז i הוא 4.",
+["נכון.",
+ "enumerate מתחיל מ-0.",
+ "16 לא גדול מ-20.",
+ "break עוצר את הלולאה."])
+
+q("iter", """
+def gen():
+    for i in range(3):
+        print("make", i)
+        yield i
+
+for x in gen():
+    print("use", x)
+    if x == 1:
+        break
+""", ["make 0\nmake 1\nmake 2\nuse 0\nuse 1", "make 0\nuse 0\nmake 1\nuse 1", "make 0\nuse 0\nmake 1\nuse 1\nmake 2", "use 0\nuse 1"], 1,
+"generator מייצר ערך רק כשמבקשים אותו (עצלות). כל make מגיע מיד לפני ה-use שלו. אחרי break לא מבקשים עוד, אז make 2 לא קורה.",
+["generator לא מייצר הכול מראש. זה מה שרשימה הייתה עושה.",
+ "נכון.",
+ "אחרי break לא מבקשים ערך נוסף.",
+ "גם ההדפסות שבתוך ה-generator קורות."], "טריק")
+
+# ───── מחלקות ─────
+q("classes", """
+class A:
+    def __init__(self):
+        return 5
+
+a = A()
+print("ok")
+""", ["ok", "5", E("TypeError"), "None"], 2,
+"`__init__` חייב להחזיר None. הוא מאתחל את האובייקט, הוא לא יוצר אותו. החזרת ערך אחר זורקת TypeError.",
+["הקוד נכשל לפני print.",
+ "`A()` מחזיר את האובייקט, לא את מה ש-`__init__` החזיר.",
+ "נכון: __init__() should return None, not 'int'.",
+ "הקוד לא מגיע להדפסה."], "באג")
+
+q("classes", """
+class Visit:
+    count = 0
+
+    def __init__(self):
+        self.count += 1
+
+a = Visit()
+b = Visit()
+print(Visit.count, a.count, b.count)
+""", ["2 2 2", "0 1 1", "2 1 2", "1 1 1"], 1,
+"`self.count += 1` קורא את count של המחלקה (0), ואז משייך את התוצאה ל-self.count, כלומר יוצר משתנה מופע. המחלקה לא משתנה. כדי לספור נכון: `Visit.count += 1`.",
+["self.count יוצר משתנה במופע ולא משנה את המחלקה.",
+ "נכון: באג נפוץ.",
+ "כל מופע מתחיל מ-0 של המחלקה.",
+ "Visit.count לא השתנה."], "באג שקט")
+
+q("classes", """
+class P:
+    def __init__(self, n):
+        self.n = n
+
+    def __eq__(self, other):
+        return self.n == other.n
+
+people = [P(1), P(2)]
+print(P(2) in people, people.index(P(2)), P(3) in people)
+""", ["False 1 False", "True 1 False", E("ValueError"), "True 2 False"], 1,
+"`in` ו-`index` משווים בעזרת `__eq__`. P(2) חדש שווה ל-P(2) שברשימה כי ה-n זהה. בלי `__eq__` ההשוואה הייתה לפי זהות, והתשובה הייתה False.",
+["עם `__eq__`, שני אובייקטים עם אותו n שווים.",
+ "נכון.",
+ "index מוצא את האיבר בזכות `__eq__`.",
+ "index מתחיל מ-0."])
+
+q("classes", """
+from dataclasses import dataclass
+
+@dataclass
+class Point:
+    x: int
+    y: int = 0
+
+p = Point(3)
+print(p, p == Point(3, 0))
+""", ["<__main__.Point object at 0x…> False", "Point(x=3, y=0) True", "Point(3, 0) True", "Point(x=3, y=0) False"], 1,
+"`@dataclass` כותב לבד `__init__`, `__repr__` ו-`__eq__` לפי השדות. לכן ההדפסה קריאה, וההשוואה היא לפי ערכים.",
+["dataclass מוסיף `__repr__` ו-`__eq__`.",
+ "נכון.",
+ "ה-repr כולל את שמות השדות.",
+ "`__eq__` משווה לפי השדות."])
+
+q("classes", """
+class Date:
+    def __init__(self, d, m, y):
+        self.d, self.m, self.y = d, m, y
+
+    @classmethod
+    def from_string(cls, s):
+        d, m, y = map(int, s.split("/"))
+        return cls(d, m, y)
+
+x = Date.from_string("11/11/2026")
+print(x.m + x.d, type(x).__name__)
+""", ["22 Date", "1111 Date", "22 str", E("TypeError")], 0,
+"classmethod משמש כבנאי חלופי: הוא מפרק את המחרוזת וקורא ל-`cls(...)`. `map(int, ...)` ממיר כל חלק למספר, אז החיבור הוא חשבוני.",
+["נכון.",
+ "החלקים הומרו ל-int לפני החיבור.",
+ "`cls(...)` יוצר Date.",
+ "מספר הארגומנטים תואם."])
+
+q("classes", """
+class Account:
+    def __init__(self):
+        self.__balance = 100
+
+a = Account()
+print(a._Account__balance)
+print(a.__balance)
+""", ["100\n100", "100\n" + E("AttributeError"), E("AttributeError"), "None\n100"], 1,
+"שני קווים תחתונים מפעילים name mangling: השם נשמר בפועל כ-`_Account__balance`. זה לא באמת פרטי, אבל `a.__balance` מבחוץ לא נמצא.",
+["מבחוץ השם `__balance` לא קיים.",
+ "נכון.",
+ "השם המעוות נגיש.",
+ "הערך הוא 100."], "טריק")
+
+# ───── טריקים ─────
+q("tricks", """
+x = [0, 0]
+i = 0
+i, x[i] = 1, 5
+print(x)
+""", ["[5, 0]", "[0, 5]", "[1, 5]", E("IndexError")], 1,
+"בהשמה מרובה, הצד הימני מחושב קודם, ואז ההשמות מתבצעות משמאל לימין. i מקבל 1, ורק אז `x[i] = 5`, כלומר `x[1]`.",
+["i כבר שונה ל-1 לפני ההשמה ל-x[i].",
+ "נכון: טריק מתקדם.",
+ "x[0] לא משתנה.",
+ "x[1] קיים."], "טריק מתקדם")
+
+q("tricks", """
+words = ["kiwi", "fig", "banana", "plum"]
+print(max(words, key=len), min(words, key=len), max([], default="none"))
+""", ["plum fig none", "banana fig none", "banana fig " + E("ValueError"), "banana kiwi none"], 1,
+"`key=len` משווה לפי אורך. `default` מונע את ה-ValueError שהיה נזרק מ-max על רשימה ריקה.",
+["max לפי key=len משווה אורכים, לא אלפבית.",
+ "נכון.",
+ "default מונע את השגיאה.",
+ "fig הקצרה ביותר."])
+
+q("tricks", """
+print([x if x > 2 else 0 for x in range(5)], [x for x in range(5) if x > 2])
+""", ["[3, 4] [3, 4]", "[0, 0, 0, 3, 4] [3, 4]", "[0, 0, 0, 3, 4] [0, 0, 0, 3, 4]", E("SyntaxError")], 1,
+"`if/else` לפני ה-for משנה כל ערך (ולכן האורך נשאר 5). `if` אחרי ה-for מסנן איברים החוצה.",
+["if/else לפני ה-for לא מסנן.",
+ "נכון.",
+ "if אחרי ה-for כן מסנן.",
+ "שני התחבירים חוקיים."], "טריק")
+
+q("tricks", """
+people = [("dana", 30), ("gil", 25), ("noa", 30), ("avi", 25)]
+print([n for n, a in sorted(people, key=lambda p: (-p[1], p[0]))])
+""", ["['avi', 'gil', 'dana', 'noa']", "['dana', 'noa', 'avi', 'gil']", "['noa', 'dana', 'gil', 'avi']", "['dana', 'gil', 'noa', 'avi']"], 1,
+"מפתח שהוא tuple ממיין לפי כמה קריטריונים: קודם `-גיל` (גיל יורד), ובשוויון לפי שם (עולה).",
+["`-p[1]` הופך את הגיל לסדר יורד.",
+ "נכון.",
+ "בשוויון גיל, השם ממוין בסדר עולה.",
+ "המיון לא לפי סדר ההופעה."], "טריק")
+
+q("tricks", """
+print(10 / 3 * 3 == 10, 0.1 * 3 == 0.3, round(2.675, 2))
+""", ["True True 2.68", "True False 2.67", "False False 2.68", "False False 2.67"], 1,
+"10 / 3 * 3 יוצא במקרה בדיוק 10.0. לעומת זאת 0.1 * 3 הוא 0.30000000000000004. ו-2.675 נשמר בזיכרון כ-2.67499999…, ולכן מעוגל ל-2.67.",
+["round(2.675, 2) נותן 2.67 בגלל ייצוג בינארי.",
+ "נכון.",
+ "10 / 3 * 3 כן יוצא 10.0.",
+ "10 / 3 * 3 == 10 הוא True."], "טריק")
+
+q("tricks", """
+x = [1, 2, 3]
+print(x[::-1] == list(reversed(x)), x.reverse(), x)
+""", ["True None [1, 2, 3]", "True None [3, 2, 1]", "True [3, 2, 1] [3, 2, 1]", "False None [3, 2, 1]"], 1,
+"הארגומנטים של print מחושבים משמאל לימין. ההשוואה קורית קודם (True). אחר כך `x.reverse()` הופך את הרשימה במקום ומחזיר None. כשמגיעים להדפסה, x כבר הפוכה.",
+["reverse() כבר שינה את x לפני ההדפסה.",
+ "נכון.",
+ "reverse() מחזיר None.",
+ "שתי הדרכים להפוך זהות."], "טריק מתקדם")
+
+# ───── רשימות ─────
+q("lists", """
+a = [1, 2, 3]
+a.insert(100, 4)
+a.insert(-1, 9)
+print(a)
+""", ["[1, 2, 3, 4, 9]", "[1, 2, 3, 9, 4]", E("IndexError"), "[9, 1, 2, 3, 4]"], 1,
+"`insert` עם אינדקס גדול מהאורך פשוט מוסיף בסוף, בלי שגיאה. `insert(-1, x)` מכניס לפני האיבר האחרון, לא בסוף.",
+["insert(-1) מכניס לפני האחרון.",
+ "נכון.",
+ "insert לא זורק שגיאה על אינדקס גדול.",
+ "-1 הוא לפני האחרון, לא בהתחלה."], "טריק")
+
+q("lists", """
+a = [1, 2, 3, 4, 5]
+a[1:3] = [9]
+print(a, len(a))
+""", ["[1, 9, 9, 4, 5] 5", "[1, 9, 4, 5] 4", "[1, [9], 4, 5] 4", E("ValueError")], 1,
+"השמה לחיתוך מחליפה את כל הקטע (2, 3) במה שבצד ימין, גם אם האורך שונה. הרשימה מתקצרת.",
+["הקטע מוחלף, לא כל איבר בנפרד.",
+ "נכון.",
+ "האיברים נכנסים כאיברים, לא כרשימה מקוננת.",
+ "אורך שונה מותר בחיתוך רגיל (בלי צעד)."])
+
+q("lists", """
+a = [1, 2, 3]
+b = a
+a.clear()
+print(b)
+
+c = [1, 2, 3]
+d = c
+c = []
+print(d)
+""", ["[]\n[]", "[]\n[1, 2, 3]", "[1, 2, 3]\n[]", "[1, 2, 3]\n[1, 2, 3]"], 1,
+"`clear()` מרוקן את הרשימה עצמה, ו-b מצביע עליה. `c = []` רק מצמיד את c לרשימה חדשה, ו-d ממשיך להצביע על הישנה.",
+["c = [] לא משנה את הרשימה המקורית.",
+ "נכון.",
+ "clear משנה את האובייקט המשותף.",
+ "clear מרוקן גם את מה ש-b רואה."], "טריק")
+
+q("lists", """
+a = [1, [2, 3], 4]
+print(2 in a, [2, 3] in a, len(a))
+""", ["True True 4", "False True 3", "True False 3", "False False 3"], 1,
+"`in` בודק רק את האיברים ברמה העליונה. 2 נמצא בתוך רשימה פנימית ולא ישירות ב-a. הרשימה `[2, 3]` כן איבר של a.",
+["in לא מחפש בתוך רשימות מקוננות.",
+ "נכון.",
+ "`[2, 3]` הוא איבר של a.",
+ "`[2, 3]` נמצא."])
+
+# ───── tuple ו-set ─────
+q("tuples", """
+s = {x % 3 for x in range(10)}
+print(sorted(s), len(s))
+""", ["[0, 1, 2, 0, 1, 2, 0, 1, 2, 0] 10", "[0, 1, 2] 3", "[0, 0, 0, 0, 1, 1, 1, 2, 2, 2] 10", "{0, 1, 2} 3"], 1,
+"set comprehension (סוגריים מסולסלים בלי נקודתיים) יוצר set, והוא מסיר כפילויות. השאריות היחידות הן 0, 1, 2.",
+["set לא שומר כפילויות.",
+ "נכון.",
+ "set מסיר כפילויות.",
+ "sorted מחזיר רשימה, לא set."])
+
+q("tuples", """
+s = {[1, 2], [3]}
+print(s)
+""", ["{[1, 2], [3]}", E("TypeError"), "{1, 2, 3}", "{(1, 2), (3,)}"], 1,
+"איברי set חייבים להיות hashable, ורשימה אינה כזו. אפשר להשתמש ב-tuple: `{(1, 2), (3,)}`.",
+["רשימה לא יכולה להיות איבר ב-set.",
+ "נכון: unhashable type: 'list'.",
+ "set לא מפרק רשימות פנימיות.",
+ "פייתון לא ממיר אוטומטית ל-tuple."], "באג")
+
+q("tuples", """
+a = {1, 2}
+b = {1, 2, 3}
+print(a <= b, a < a, b >= a, a.isdisjoint({3}))
+""", ["True True True True", "True False True True", "True False True False", "False False True True"], 1,
+"`<=` הוא תת-קבוצה, `<` הוא תת-קבוצה ממש (לא שווה), ו-`isdisjoint` בודק שאין איברים משותפים. a לא תת-קבוצה ממש של עצמה.",
+["`a < a` הוא False כי הן שוות.",
+ "נכון.",
+ "אין ל-a איבר 3, אז הן זרות.",
+ "a תת-קבוצה של b."])
+
+q("tuples", """
+from collections import namedtuple
+
+Point = namedtuple("Point", ["x", "y"])
+p = Point(3, 4)
+print(p.x + p[1], p)
+""", ["7 (3, 4)", "7 Point(x=3, y=4)", E("AttributeError"), "34 Point(x=3, y=4)"], 1,
+"namedtuple הוא tuple עם שמות לשדות. אפשר לגשת גם לפי שם וגם לפי אינדקס, וה-repr שלו כולל את השמות.",
+["ה-repr של namedtuple כולל את שמות השדות.",
+ "נכון.",
+ "x קיים כשדה.",
+ "הערכים הם מספרים, אז החיבור חשבוני."])
+
+# ───── פונקציות ─────
+q("functions", """
+def describe(name, age=0, city="?"):
+    return f"{name}-{age}-{city}"
+
+print(describe("Dana", city="Haifa"), describe(age=5, name="Gil"))
+""", ["Dana-Haifa-? Gil-5-?", "Dana-0-Haifa Gil-5-?", E("TypeError"), "Dana-0-Haifa 5-Gil-?"], 1,
+"ארגומנטים בשם משויכים לפי השם, לא לפי המיקום, ומותר לשלוח אותם בכל סדר. מה שלא נשלח מקבל את ברירת המחדל.",
+["`city=\"Haifa\"` הולך ל-city.",
+ "נכון.",
+ "כל הקריאות תקינות.",
+ "name=\"Gil\" משויך לפי שם."])
+
+q("functions", """
+def f(a, b):
+    return a - b
+
+print(f(b=1, 5))
+""", ["4", "-4", E("SyntaxError"), E("TypeError")], 2,
+"אסור לשים ארגומנט לפי מיקום אחרי ארגומנט בשם. השגיאה מתגלה עוד לפני הריצה: positional argument follows keyword argument.",
+["הקוד לא רץ בכלל.",
+ "פייתון לא מנחש שה-5 שייך ל-a.",
+ "נכון.",
+ "השגיאה תחבירית, עוד לפני הקריאה."], "באג")
+
+q("functions", """
+def f(n):
+    if n <= 1:
+        return 1
+    return n * f(n - 1)
+
+print(f(5), f(0))
+""", ["120 0", "120 1", "24 1", E("RecursionError")], 1,
+"רקורסיה: f(5) = 5 · 4 · 3 · 2 · 1 = 120. תנאי העצירה `n <= 1` מחזיר 1, גם עבור 0 (0! = 1).",
+["עבור 0 תנאי העצירה מחזיר 1.",
+ "נכון.",
+ "f(5) כולל גם את 5.",
+ "יש תנאי עצירה."])
+
+q("functions", """
+def multiplier(n):
+    return lambda x: x * n
+
+double = multiplier(2)
+triple = multiplier(3)
+print(double(5), triple(double(2)), multiplier(10)(1))
+""", ["10 12 10", "10 6 10", "10 12 1", E("TypeError")], 0,
+"כל קריאה ל-multiplier מחזירה פונקציה חדשה שזוכרת את n שלה (closure). triple(double(2)) = triple(4) = 12. `multiplier(10)(1)` יוצר פונקציה וקורא לה מיד.",
+["נכון.",
+ "double(2) הוא 4, ו-triple(4) הוא 12.",
+ "multiplier(10)(1) = 1 · 10.",
+ "מותר לקרוא לפונקציה שמוחזרת מיד."])
+
+q("functions", """
+counter = 0
+
+def inc():
+    global counter
+    counter += 1
+    return counter
+
+inc()
+inc()
+print(counter, inc())
+""", ["0 1", "2 3", "3 3", E("UnboundLocalError")], 1,
+"`global` מאפשר לפונקציה לשנות את המשתנה הגלובלי. אחרי שתי קריאות counter הוא 2. הארגומנטים של print מחושבים משמאל לימין: קודם counter (2), ואז inc() (3).",
+["global משנה את המשתנה החיצוני.",
+ "נכון.",
+ "counter נקרא לפני הקריאה השלישית.",
+ "global מונע את השגיאה."])
+
+q("functions", """
+def stats(nums):
+    return min(nums), max(nums)
+
+result = stats([4, 1, 9])
+lo, hi = stats([4, 1, 9])
+print(result, type(result).__name__, hi - lo)
+""", ["1 9 tuple 8", "(1, 9) tuple 8", "[1, 9] list 8", "(1, 9) tuple -8"], 1,
+"`return a, b` מחזיר tuple אחד. אפשר לשמור אותו כמו שהוא או לפרק אותו לשני משתנים.",
+["result הוא tuple אחד.",
+ "נכון.",
+ "הפסיק יוצר tuple, לא רשימה.",
+ "hi הוא 9 ו-lo הוא 1."])
+
+# ───── תנאים ─────
+q("cond", """
+def check(value):
+    if not value:
+        return "missing"
+    return "ok"
+
+print(check(0), check(None), check("0"), check([0]))
+""", ["missing missing missing missing", "missing missing ok ok", "ok missing ok ok", "missing missing ok missing"], 1,
+"`if not value` נכון לכל ערך שקרי: 0, None, \"\", []. זה באג אם 0 הוא קלט חוקי. כדי לבדוק רק None: `if value is None`.",
+["\"0\" ו-[0] אינם ריקים, ולכן אמת.",
+ "נכון.",
+ "0 הוא שקר, אז \"missing\".",
+ "`[0]` היא רשימה עם איבר, ולכן אמת."], "טריק")
+
+q("cond", """
+temp = 15
+if temp > 30:
+    msg = "hot"
+elif temp > 20:
+    msg = "warm"
+print(msg)
+""", ["warm", "None", E("NameError"), "cold"], 2,
+"אף תנאי לא התקיים ואין else, אז msg לא הוגדר מעולם. בפייתון אין ערך ברירת מחדל למשתנה. כדאי להוסיף else או לאתחל את msg לפני ה-if.",
+["15 לא גדול מ-20.",
+ "משתנה שלא הוגדר אינו None.",
+ "נכון: name 'msg' is not defined.",
+ "\"cold\" לא מופיע בקוד."], "באג")
+
+q("cond", """
+x = 5
+print(1 < x != 5, x in range(1, 5), 0 < x <= 5)
+""", ["True True True", "False False True", "False True True", "True False True"], 1,
+"`1 < x != 5` פירושו `1 < x and x != 5`, ו-x הוא 5. `range(1, 5)` לא כולל את 5. `0 < x <= 5` נכון.",
+["x != 5 הוא False.",
+ "נכון.",
+ "range(1, 5) לא כולל את 5.",
+ "השוואה משורשרת דורשת ששני החלקים יתקיימו."], "טריק")
+
+q("cond", """
+point = (0, 7)
+match point:
+    case (0, 0):
+        print("origin")
+    case (0, y):
+        print("on y axis at", y)
+    case (x, 0):
+        print("on x axis at", x)
+    case _:
+        print("somewhere")
+""", ["origin", "on y axis at 7", "somewhere", "on y axis at y"], 1,
+"`match` יכול לפרק מבנים: `(0, y)` מתאים לכל tuple שהאיבר הראשון שלו 0, ומשייך את האיבר השני ל-y.",
+["(0, 7) לא שווה ל-(0, 0).",
+ "נכון.",
+ "case השני מתאים לפני שמגיעים ל-_.",
+ "y מקבל את הערך 7."])
+
+q("cond", """
+a = []
+print(a == [], a is [], a is a, not a)
+""", ["True True True True", "True False True True", "True False True False", "False False True True"], 1,
+"`==` משווה תוכן: שתי רשימות ריקות שוות. `is` בודק אם זה אותו אובייקט, ו-`[]` חדש הוא אובייקט אחר. רשימה ריקה היא שקר, לכן `not a` הוא True.",
+["`[]` חדש הוא אובייקט אחר, אז `is` נותן False.",
+ "נכון.",
+ "רשימה ריקה היא שקר, אז `not a` הוא True.",
+ "התוכן זהה."])
+
+# ───── משתנים ─────
+q("vars", """
+a, b, c = 1, 2, 3
+a, b, c = c, a, b
+print(a, b, c)
+""", ["3 1 2", "3 3 3", "1 2 3", "2 3 1"], 0,
+"הצד הימני מחושב במלואו קודם, עם הערכים הישנים (3, 1, 2), ורק אז ההשמה מתבצעת. לכן אין צורך במשתנה זמני.",
+["נכון.",
+ "הערכים הישנים נשמרים עד שההשמה מתבצעת.",
+ "ההשמה כן מתבצעת.",
+ "הסדר הפוך."])
+
+q("vars", """
+print(str(1.0), int("  7 "), float("1e3"), int("-0"))
+""", ["1 7 1000 0", "1.0 7 1000.0 0", E("ValueError"), "1.0 7 1e3 -0"], 1,
+"`int` מתעלם מרווחים בקצוות. `float` מבין כתיב מדעי (1e3 = 1000.0). `int(\"-0\")` הוא 0.",
+["str(1.0) שומר את \".0\", ו-float נשאר עשרוני.",
+ "נכון.",
+ "רווחים בקצוות מותרים ב-int.",
+ "float ממיר ל-1000.0, ו-int(\"-0\") הוא 0."], "טריק")
+
+q("vars", """
+s = "a"
+s += "b" * 2
+s *= 2
+print(s, len(s))
+""", ["abab 4", "abbabb 6", "abb2 4", "ababab 6"], 1,
+"קודם `\"b\" * 2` = \"bb\", אז s = \"abb\". אחר כך `s *= 2` משכפל: \"abbabb\".",
+["\"b\" * 2 הוא \"bb\".",
+ "נכון.",
+ "`*=` משכפל.",
+ "`*` חל רק על \"b\"."])
+
+q("vars", """
+print(divmod(17, 5), abs(-3.5), pow(2, 10, 1000))
+""", ["(3, 2) 3.5 1024", "(3, 2) 3.5 24", "(3.4, 2) 3.5 24", "3 2 3.5 24"], 1,
+"`divmod` מחזיר tuple של (מנה, שארית). `abs` מחזיר ערך מוחלט. `pow(a, b, m)` מחשב a בחזקת b מודולו m: 1024 % 1000 = 24.",
+["הארגומנט השלישי של pow הוא מודולו.",
+ "נכון.",
+ "divmod מחזיר מנה שלמה.",
+ "divmod מחזיר tuple."])
+
+# ───── לולאות ─────
+q("loops", """
+n = 0
+count = 0
+while n < 10:
+    n += 1
+    if n % 3:
+        continue
+    count += 1
+print(n, count)
+""", ["10 3", "9 3", "10 7", "10 10"], 0,
+"`n % 3` הוא אמת כשיש שארית, ואז continue מדלג על הספירה. נספרים רק 3, 6, 9. הלולאה נעצרת כש-n מגיע ל-10.",
+["נכון.",
+ "n מגיע ל-10.",
+ "נספרים רק מספרים שמתחלקים ב-3.",
+ "continue מדלג על רוב הסיבובים."])
+
+q("loops", """
+found = None
+for i in range(1, 4):
+    for j in range(1, 4):
+        if i * j == 6:
+            found = (i, j)
+            break
+    if found:
+        break
+print(found)
+""", ["(3, 2)", "(2, 3)", "None", "(6, 1)"], 1,
+"break יוצא רק מהלולאה הפנימית, ולכן צריך דגל (found) כדי לצאת גם מהחיצונית. הזוג הראשון שמכפלתו 6 הוא i = 2, j = 3.",
+["(2, 3) נמצא לפני (3, 2).",
+ "נכון.",
+ "יש זוג שמכפלתו 6.",
+ "range(1, 4) מגיע רק עד 3."])
+
+q("loops", """
+names = ["Dana", "Gil", "Noa"]
+ages = [25, 30]
+for i, (n, a) in enumerate(zip(names, ages), start=1):
+    print(i, n, a)
+""", ["1 Dana 25\n2 Gil 30", "0 Dana 25\n1 Gil 30", "1 Dana 25\n2 Gil 30\n3 Noa None", E("ValueError")], 0,
+"zip נעצר ברשימה הקצרה, אז Noa לא מופיעה. `enumerate(..., start=1)` מתחיל לספור מ-1. `(n, a)` מפרק כל זוג של zip.",
+["נכון.",
+ "start=1 מתחיל מ-1.",
+ "zip לא ממלא ערכים חסרים.",
+ "כל זוג מתפרק לשני משתנים."])
+
+q("loops", """
+for i in range(0, 1, 0.5):
+    print(i)
+""", ["0\n0.5", E("TypeError"), E("ValueError"), "0"], 1,
+"range עובד רק עם מספרים שלמים. לצעדים עשרוניים אפשר `[i / 2 for i in range(2)]`.",
+["range לא מקבל float.",
+ "נכון: 'float' object cannot be interpreted as an integer.",
+ "הבעיה היא הטיפוס, לא הערך.",
+ "שום דבר לא מודפס."], "באג")
+
+q("loops", """
+prices = {"pen": 5, "book": 40}
+for k in prices:
+    prices[k] *= 2
+print(prices)
+""", ["{'pen': 5, 'book': 40}", "{'pen': 10, 'book': 80}", E("RuntimeError"), "{'pen': 10, 'book': 40}"], 1,
+"מותר לשנות ערכים של מפתחות קיימים תוך כדי מעבר על מילון. אסור רק להוסיף או למחוק מפתחות.",
+["השינוי נשמר במילון.",
+ "נכון.",
+ "RuntimeError מתקבל רק כשגודל המילון משתנה.",
+ "הלולאה עוברת על כל המפתחות."], "טריק")
+
+# ───── ניהול שגיאות ─────
+q("exceptions", """
+def f():
+    try:
+        return 1
+    finally:
+        return 2
+
+print(f())
+""", ["1", "2", "1\n2", E("SyntaxError")], 1,
+"finally רץ תמיד, גם אחרי return. אם יש בו return משלו, הוא דורס את הערך הקודם. זה הרגל רע (בגרסאות חדשות פייתון מזהיר עליו), אבל הקוד עובד.",
+["ה-return ב-finally דורס.",
+ "נכון.",
+ "רק ערך אחד מוחזר.",
+ "return בתוך finally חוקי."], "טריק מתקדם")
+
+q("exceptions", """
+try:
+    try:
+        1 / 0
+    finally:
+        print("inner finally")
+except ZeroDivisionError:
+    print("outer caught")
+""", ["outer caught", "inner finally\nouter caught", "outer caught\ninner finally", "inner finally\n" + E("ZeroDivisionError")], 1,
+"ל-try הפנימי אין except, אז החריגה ממשיכה החוצה. לפני שהיא יוצאת רץ ה-finally הפנימי, ורק אחר כך ה-except החיצוני תופס אותה.",
+["finally רץ גם כשהחריגה לא נתפסת בבלוק שלו.",
+ "נכון.",
+ "finally הפנימי רץ לפני שהחריגה מגיעה לבלוק החיצוני.",
+ "ה-except החיצוני תופס."])
+
+q("exceptions", """
+try:
+    int("x")
+except ValueError as e:
+    msg = str(e)
+
+print(len(msg) > 0)
+print(e)
+""", ["True\ninvalid literal for int() with base 10: 'x'", "True\n" + E("NameError"), E("NameError"), "False\n" + E("NameError")], 1,
+"המשתנה של `except ... as e` נמחק אוטומטית בסוף בלוק ה-except, כדי למנוע דליפת זיכרון. msg כן נשאר. אם צריך את החריגה אחרי הבלוק, שומרים אותה במשתנה אחר.",
+["e לא קיים אחרי הבלוק.",
+ "נכון: טריק מתקדם.",
+ "msg קיים, אז השורה הראשונה מודפסת.",
+ "ההודעה לא ריקה."], "טריק מתקדם")
+
+q("exceptions", """
+class AppError(Exception):
+    pass
+
+class DbError(AppError):
+    pass
+
+for exc in [DbError("db"), AppError("app"), ValueError("v")]:
+    try:
+        raise exc
+    except DbError:
+        print("db", end=" ")
+    except AppError:
+        print("app", end=" ")
+    except Exception:
+        print("other", end=" ")
+""", ["db app other", "app app other", "db db other", "db app " + E("ValueError")], 0,
+"היררכיה של חריגות: DbError יורשת מ-AppError. כל חריגה נתפסת ב-except הראשון שמתאים לה. ValueError לא שייכת ל-AppError, ולכן נתפסת ב-Exception.",
+["נכון.",
+ "DbError נתפסת קודם ב-except DbError.",
+ "AppError לא מתאימה ל-except DbError, כי ההורה הוא לא סוג של הילד.",
+ "except Exception תופס את ValueError."])
+
+q("exceptions", """
+def withdraw(balance, amount):
+    assert amount > 0, "amount must be positive"
+    return balance - amount
+
+print(withdraw(100, 30))
+print(withdraw(100, -5))
+""", ["70\n105", "70\n" + E("AssertionError"), "70\n" + E("ValueError"), E("AssertionError")], 1,
+"`assert` בודק תנאי, וזורק AssertionError עם ההודעה אם התנאי לא מתקיים. הוא מיועד לבדיקות פנימיות ולטסטים (זה מה ש-pytest משתמש בו), לא לבדיקת קלט של משתמש, כי אפשר לכבות אותו עם `python -O`.",
+["assert עוצר את הקריאה השנייה.",
+ "נכון.",
+ "assert זורק AssertionError.",
+ "הקריאה הראשונה מצליחה ומודפסת."])
+
+# ───── פולימורפיזם ─────
+q("poly", """
+class Cat:
+    def __repr__(self):
+        return "Cat()"
+
+c = Cat()
+print(c, str(c), f"{c}")
+""", ["<__main__.Cat object at 0x…> Cat() Cat()", "Cat() Cat() Cat()", "Cat() <__main__.Cat object at 0x…> Cat()", E("TypeError")], 1,
+"כשאין `__str__`, פייתון משתמש ב-`__repr__` גם עבור print, `str()` ו-f-string. לכן מספיק להגדיר `__repr__`.",
+["`__repr__` משמש גם כגיבוי ל-`__str__`.",
+ "נכון.",
+ "str() נופל ל-`__repr__`.",
+ "הקוד תקין."])
+
+q("poly", """
+class Item:
+    def __init__(self, p):
+        self.p = p
+
+    def __lt__(self, other):
+        return self.p < other.p
+
+    def __repr__(self):
+        return f"I{self.p}"
+
+print(sorted([Item(3), Item(1), Item(2)]), max([Item(3), Item(5)]))
+""", ["[I1, I2, I3] I5", "[I3, I1, I2] I3", E("TypeError"), "[I1, I2, I3] " + E("TypeError")], 0,
+"`__lt__` (קטן מ-) מספיק כדי ש-sorted יעבוד. גם max עובד: הוא שואל `a > b`, ופייתון הופך את זה ל-`b < a` כשאין `__gt__`.",
+["נכון.",
+ "sorted משתמש ב-`__lt__`.",
+ "עם `__lt__` ההשוואה מוגדרת.",
+ "max משתמש בהשוואה ההפוכה."], "טריק מתקדם")
+
+q("poly", """
+class A:
+    def __init__(self):
+        print("A", end=" ")
+
+class B(A):
+    def __init__(self):
+        print("B", end=" ")
+        super().__init__()
+
+class C(B):
+    pass
+
+C()
+""", ["C B A", "B A", "A B", "A"], 1,
+"ל-C אין `__init__`, אז הוא יורש את של B. B מדפיס ואז קורא לבנאי של A דרך super().",
+["C לא מדפיס כלום, כי אין לו בנאי משלו.",
+ "נכון.",
+ "B מדפיס לפני שהוא קורא ל-super().",
+ "גם הבנאי של B רץ."])
+
+q("poly", """
+items = ["abc", [1, 2], {"a": 1}, (1,), {1, 2, 3}]
+print([len(x) for x in items])
+""", ["[3, 2, 2, 1, 3]", "[3, 2, 1, 1, 3]", E("TypeError"), "[1, 2, 1, 1, 3]"], 1,
+"len הוא דוגמה לפולימורפיזם: אותה פונקציה עובדת על כל טיפוס שמגדיר `__len__`. במילון היא סופרת מפתחות.",
+["במילון len סופר מפתחות, ויש אחד.",
+ "נכון.",
+ "לכל הטיפוסים האלה יש `__len__`.",
+ "len של \"abc\" הוא 3."])
+
+q("poly", """
+class Shape:
+    def area(self):
+        raise NotImplementedError
+
+class Sq(Shape):
+    def __init__(self, s):
+        self.s = s
+
+    def area(self):
+        return self.s ** 2
+
+class Tri(Shape):
+    pass
+
+total = 0
+for s in [Sq(2), Tri(), Sq(3)]:
+    try:
+        total += s.area()
+    except NotImplementedError:
+        print("skip", type(s).__name__)
+print(total)
+""", ["skip Tri\n13", "13", "skip Shape\n13", E("NotImplementedError")], 0,
+"Tri לא דרס את area, אז נקראת הגרסה של Shape שזורקת NotImplementedError. החריגה נתפסת, והלולאה ממשיכה. 4 + 9 = 13.",
+["נכון.",
+ "Tri כן מגיע ל-except ומודפס.",
+ "type(s) הוא Tri, לא Shape.",
+ "החריגה נתפסת."])
+
+# ───── איזו חריגה? ─────
+qe("""
+total = None
+total += 1
+""", ["TypeError", "ValueError", "NameError", "AttributeError"], 0,
+"אי אפשר לחבר None עם מספר: unsupported operand type(s) for +=. קורה הרבה כשמאתחלים ב-None ושוכחים להחליף ל-0.",
+["נכון.",
+ "הבעיה היא בשילוב הטיפוסים, לא בערך.",
+ "total מוגדר.",
+ "לא ניגשים לתכונה."])
+
+qe("""
+s = "python"
+pos = s.index("z")
+""", ["ValueError", "IndexError", "KeyError", "TypeError"], 0,
+"`str.index` זורק ValueError כשתת-המחרוזת לא נמצאה. `str.find` היה מחזיר -1 בלי שגיאה.",
+["נכון: substring not found.",
+ "IndexError הוא אינדקס מחוץ לטווח. כאן מחפשים ערך.",
+ "KeyError הוא במילונים.",
+ "הטיפוסים תקינים."], "טריק")
+
+qe("""
+point = (1, 2)
+point.append(3)
+""", ["AttributeError", "TypeError", "IndexError", "ValueError"], 0,
+"ל-tuple אין מתודה append, כי הוא immutable. ההבדל: `t[0] = 5` זורק TypeError (השמה לאיבר), אבל `t.append` זורק AttributeError (מתודה לא קיימת).",
+["נכון: 'tuple' object has no attribute 'append'.",
+ "TypeError מתקבל מהשמה לאיבר, למשל `t[0] = 5`.",
+ "אין גישה לאינדקס.",
+ "לא מעבירים ערך לא תקין."], "טריק")
+
+qe("""
+pairs = ["ab", "c"]
+d = dict(pairs)
+""", ["ValueError", "TypeError", "KeyError", "IndexError"], 0,
+"`dict` מקבל רצף של זוגות. \"ab\" מתפרק לשני תווים, אז הוא זוג תקין. אבל \"c\" הוא באורך 1: dictionary update sequence element #1 has length 1; 2 is required.",
+["נכון.",
+ "המחרוזות הן טיפוס תקין. הבעיה באורך של אחת מהן.",
+ "לא ניגשים למפתח.",
+ "אין גישה לאינדקס."], "טריק מתקדם")
+
+qe("""
+n = int(float("inf"))
+""", ["OverflowError", "ValueError", "TypeError", "ZeroDivisionError"], 0,
+"אינסוף אי אפשר להמיר למספר שלם: cannot convert float infinity to integer. מעניין: `int(float(\"nan\"))` זורק דווקא ValueError.",
+["נכון.",
+ "ValueError הוא עבור NaN. אינסוף נחשב חריגה מהטווח.",
+ "float הוא טיפוס תקין ל-int.",
+ "אין חלוקה."], "טריק")
+
+qe("""
+nums = [10, 20, 30]
+print(nums[1.0])
+""", ["TypeError", "IndexError", "ValueError", "KeyError"], 0,
+"אינדקס של רשימה חייב להיות int, גם אם ה-float שווה למספר שלם: list indices must be integers or slices, not float.",
+["נכון.",
+ "1 קיים כאינדקס, אבל 1.0 הוא טיפוס לא מתאים.",
+ "הבעיה בטיפוס, לא בערך.",
+ "KeyError הוא במילונים."])
+
+qe("""
+import math
+root = math.sqrt(-1)
+""", ["ValueError", "ArithmeticError", "TypeError", "ZeroDivisionError"], 0,
+"`math.sqrt` לא מחשב שורש של מספר שלילי: math domain error. (`(-1) ** 0.5` לא זורק שגיאה. הוא מחזיר מספר מרוכב.)",
+["נכון.",
+ "ArithmeticError הוא ההורה של ZeroDivisionError ו-OverflowError. כאן נזרקת ValueError.",
+ "-1 הוא טיפוס תקין.",
+ "אין חלוקה."], "טריק")
+
+# ───── קבצים ─────
+q("files", r"""
+with open("he.txt", "w", encoding="utf-8") as f:
+    f.write("שלום")
+
+with open("he.txt", encoding="ascii") as f:
+    print(f.read())
+""", ["שלום", E("UnicodeDecodeError"), E("UnicodeEncodeError"), "????"], 1,
+"הקובץ נכתב ב-UTF-8, ו-ASCII לא מכיר תווים בעברית. כשקוראים בקידוד הלא נכון מתקבלת UnicodeDecodeError. לכן תמיד כותבים וקוראים עם אותו `encoding=\"utf-8\"`. (ב-Windows, בלי encoding, ברירת המחדל שונה ועלולים לקבל ג'יבריש.)",
+["הקריאה בקידוד ASCII נכשלת.",
+ "נכון.",
+ "Encode הוא בכתיבה. כאן הבעיה בקריאה (Decode).",
+ "פייתון לא מחליף בסימני שאלה, אלא אם מבקשים `errors=\"replace\"`."], "טריק")
+
+q("files", r"""
+with open("out.txt", "w") as f:
+    print("a", "b", sep="-", file=f)
+    print("c", file=f)
+
+with open("out.txt") as f:
+    print(f.read().splitlines())
+""", ["['a-b', 'c']", "['a b', 'c']", "['a-b-c']", "[]"], 0,
+"`print(..., file=f)` כותב לקובץ במקום למסך, ומוסיף ירידת שורה כמו תמיד. זו דרך נוחה לכתוב בלי `str()` ובלי `\\n` ידני.",
+["נכון.",
+ "sep=\"-\" מחבר עם מקף.",
+ "כל print כותב שורה נפרדת.",
+ "הכתיבה הלכה לקובץ."])
+
+q("files", r"""
+import csv
+
+rows = [["name", "age"], ["Dana", 25], ["Gil", 30]]
+with open("p.csv", "w", newline="") as f:
+    csv.writer(f).writerows(rows)
+
+with open("p.csv", newline="") as f:
+    data = list(csv.reader(f))
+
+print(data[1], len(data))
+""", ["['Dana', 25] 3", "['Dana', '25'] 3", "['Dana', '25'] 2", "Dana,25 3"], 1,
+"מודול csv קורא הכול כמחרוזות: 25 חוזר כ-'25'. צריך להמיר בעצמך עם int. השורה הראשונה (כותרות) היא חלק מהרשימה.",
+["csv.reader מחזיר מחרוזות.",
+ "נכון.",
+ "csv.reader לא מדלג על הכותרת (DictReader כן משתמש בה).",
+ "reader מפרק כל שורה לרשימה."], "טריק")
+
+q("files", r"""
+import csv
+
+with open("p.csv", "w", newline="") as f:
+    f.write("name,age\nDana,25\nGil,30\n")
+
+with open("p.csv", newline="") as f:
+    reader = csv.DictReader(f)
+    total = sum(int(row["age"]) for row in reader)
+    print(reader.fieldnames, total)
+""", ["['name', 'age'] 55", "['name', 'age'] 2530", E("KeyError"), "None 55"], 0,
+"`DictReader` משתמש בשורה הראשונה כמפתחות, וכל שורה הופכת למילון. הערכים הם מחרוזות, ולכן צריך int לפני החיבור.",
+["נכון.",
+ "int ממיר לפני החיבור.",
+ "המפתח age קיים מהכותרת.",
+ "fieldnames נקרא מהשורה הראשונה."])
+
+q("files", r"""
+with open("t.txt", "w") as f:
+    f.write("one\ntwo\nthree")
+
+with open("t.txt") as f:
+    first = f.readline()
+    rest = f.read()
+
+print(repr(first), rest.split())
+""", [r"'one\n' ['two', 'three']", "'one' ['two', 'three']", r"'one\n' ['one', 'two', 'three']", "'one two three' []"], 0,
+"`readline` קורא שורה אחת כולל ה-`\\n` שלה, ומקדם את הסמן. `read()` ממשיך משם.",
+["נכון.",
+ "readline שומר את `\\n`.",
+ "read ממשיך אחרי השורה הראשונה.",
+ "readline קורא רק עד סוף השורה."])
+
+# ───── Pandas ─────
+q("pandas", r"""
+import pandas as pd
+
+df = pd.DataFrame({"name": ["Dana", "Gil", "Noa"], "score": [90, 70, 85]})
+df["passed"] = df["score"] >= 80
+print(df["passed"].tolist(), round(df["passed"].mean(), 2))
+""", ["[True, False, True] 0.67", "[True, False, True] 2", "[90, 85] 87.5", E("TypeError")], 0,
+"השוואה על עמודה יוצרת עמודה של True/False. הממוצע של עמודה כזו הוא אחוז ה-True: 2 מתוך 3. טריק נוח לחישוב אחוז הצלחה.",
+["נכון.",
+ "mean מחשב ממוצע, לא ספירה.",
+ "השוואה לא מסננת, היא מחזירה True/False.",
+ "True ו-False מתנהגים כמו 1 ו-0."], "טריק")
+
+q("pandas", r"""
+import pandas as pd
+
+df = pd.DataFrame({"price": [10, 25, 50]})
+df["level"] = df["price"].apply(lambda p: "cheap" if p < 20 else "pricey")
+print(df["level"].tolist(), (df["level"] == "pricey").sum())
+""", ["['cheap', 'pricey', 'pricey'] 2", "['cheap', 'cheap', 'pricey'] 1", "['pricey', 'pricey', 'pricey'] 3", E("ValueError")], 0,
+"`apply` מריץ פונקציה על כל ערך בעמודה. בתוך lambda מותר `if/else` ככה, כי זה ביטוי תנאי ולא if רגיל.",
+["נכון.",
+ "25 לא קטן מ-20.",
+ "10 קטן מ-20.",
+ "ביטוי תנאי חוקי בתוך lambda."])
+
+q("pandas", r"""
+import pandas as pd
+
+df = pd.DataFrame({"a": [1], "b": [2]})
+df.rename(columns={"a": "x"})
+df2 = df.rename(columns={"b": "y"})
+print(df.columns.tolist(), df2.columns.tolist())
+""", ["['x', 'b'] ['x', 'y']", "['a', 'b'] ['a', 'y']", "['x', 'y'] ['x', 'y']", "['a', 'b'] ['x', 'y']"], 1,
+"`rename` מחזיר DataFrame חדש. הקריאה הראשונה לא נשמרה, ולכן df לא השתנה. ב-df2 רק b שונה.",
+["rename הראשון לא נשמר.",
+ "נכון.",
+ "df לא השתנה בכלל.",
+ "df2 נוצר מ-df שבו a עדיין a."], "טריק")
+
+q("pandas", r"""
+import pandas as pd
+
+with open("big.csv", "w") as f:
+    f.write("id,name,age,city\n")
+    for i in range(1, 101):
+        f.write(f"{i},user{i},{20 + i % 30},Haifa\n")
+
+df = pd.read_csv("big.csv", usecols=["id", "age"], nrows=10)
+print(df.shape, df.columns.tolist(), df["id"].iloc[-1])
+""", ["(100, 4) ['id', 'name', 'age', 'city'] 100", "(10, 2) ['id', 'age'] 10", "(10, 2) ['id', 'age'] 9", "(11, 2) ['id', 'age'] 10"], 1,
+"`usecols` קורא רק את העמודות שביקשת, ו-`nrows` רק את מספר השורות הראשונות (בלי הכותרת). זה חוסך זיכרון בקבצים גדולים.",
+["usecols ו-nrows מגבילים את הקריאה.",
+ "נכון.",
+ "ה-id האחרון בשורה העשירית הוא 10, כי ה-id מתחיל מ-1.",
+ "nrows לא סופר את שורת הכותרת."], "CSV")
+
+q("pandas", r"""
+import pandas as pd
+
+df = pd.DataFrame({"x": [5, 15, 25, 35]})
+big = df[df["x"] > 10]
+print(big.index.tolist(), big.reset_index(drop=True).index.tolist(), big.reset_index().columns.tolist())
+""", ["[1, 2, 3] [0, 1, 2] ['index', 'x']", "[0, 1, 2] [0, 1, 2] ['x']", "[1, 2, 3] [0, 1, 2] ['x']", "[1, 2, 3] [1, 2, 3] ['index', 'x']"], 0,
+"אחרי סינון האינדקס המקורי נשמר. `reset_index` ממספר מחדש מ-0. בלי `drop=True` האינדקס הישן הופך לעמודה בשם index.",
+["נכון.",
+ "הסינון לא מאפס את האינדקס.",
+ "בלי drop=True נוספת עמודה בשם index.",
+ "reset_index ממספר מחדש."])
+
+q("pandas", r"""
+import pandas as pd
+
+a = pd.DataFrame({"v": [1, 2]})
+b = pd.DataFrame({"v": [3]})
+c = pd.concat([a, b])
+d = pd.concat([a, b], ignore_index=True)
+print(c.index.tolist(), d.index.tolist(), c["v"].sum())
+""", ["[0, 1, 2] [0, 1, 2] 6", "[0, 1, 0] [0, 1, 2] 6", "[0, 1, 0] [0, 1, 0] 6", E("ValueError")], 1,
+"`concat` מחבר טבלאות זו מתחת לזו ושומר את האינדקסים המקוריים, ולכן 0 מופיע פעמיים. זה יכול לבלבל את `loc`. `ignore_index=True` ממספר מחדש.",
+["concat לא ממספר מחדש בלי ignore_index.",
+ "נכון.",
+ "ignore_index=True ממספר מחדש.",
+ "אינדקסים כפולים מותרים."], "טריק")
+
 # שיוך שאלות קיימות לנושאים החדשים
 MOVE = {
     "for i in range(3):\n    if i == 5:": "loops",
